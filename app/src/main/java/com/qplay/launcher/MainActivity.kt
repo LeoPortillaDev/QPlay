@@ -31,6 +31,7 @@ import androidx.compose.foundation.shape.RoundedCornerShape
 import androidx.compose.material.icons.Icons
 import androidx.compose.material.icons.rounded.*
 import androidx.compose.material3.*
+import androidx.compose.ui.window.Dialog
 import androidx.compose.runtime.*
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
@@ -211,14 +212,34 @@ class MainActivity : ComponentActivity() {
                         IconButton(onClick = { settingsOpen = true }) {
                             Icon(Icons.Rounded.Settings, "Configurações", tint = Color.White, modifier = Modifier.size(27.dp))
                         }
-                        DropdownMenu(expanded = settingsOpen, onDismissRequest = { settingsOpen = false }) {
-                            DropdownMenuItem(text = { Text("Selecionar pasta dos jogos") }, leadingIcon = { Icon(Icons.Rounded.FolderOpen, null) }, onClick = { settingsOpen = false; folderPicker.launch(folderUri) })
-                            DropdownMenuItem(text = { Text("Escolher aplicativos") }, leadingIcon = { Icon(Icons.Rounded.Apps, null) }, onClick = { settingsOpen = false; tab = "Aplicativos" })
-                            DropdownMenuItem(text = { Text("Meu nome / saudação") }, leadingIcon = { Icon(Icons.Rounded.Person, null) }, onClick = { settingsOpen = false; nameDialog = true })
-                            DropdownMenuItem(text = { Text("Todos os jogos") }, onClick = { settingsOpen = false; libraryFilter = "Todos" })
-                            DropdownMenuItem(text = { Text("Favoritos") }, leadingIcon = { Icon(Icons.Rounded.Favorite, null) }, onClick = { settingsOpen = false; libraryFilter = "Favoritos" })
-                            DropdownMenuItem(text = { Text("Grupos") }, leadingIcon = { Icon(Icons.Rounded.Folder, null) }, onClick = { settingsOpen = false; libraryFilter = "Grupos" })
-                            DropdownMenuItem(text = { Text("Atualizar biblioteca") }, leadingIcon = { Icon(Icons.Rounded.Refresh, null) }, onClick = { settingsOpen = false; refreshToken++; apps = emptyList() })
+                        if (settingsOpen) Dialog(onDismissRequest = { settingsOpen = false }) {
+                            Surface(color = Color(0xFF202020), shape = RoundedCornerShape(22.dp), border = BorderStroke(2.dp, Color(0xFF35BCEB)), modifier = Modifier.fillMaxWidth()) {
+                                Column(Modifier.padding(22.dp), verticalArrangement = Arrangement.spacedBy(10.dp)) {
+                                    Text("CENTRAL DE OPÇÕES", color = Color(0xFF35BCEB), fontSize = 19.sp, fontWeight = FontWeight.ExtraBold, letterSpacing = 1.1.sp)
+                                    Text("Personalize sua biblioteca", color = Muted, fontSize = 12.sp)
+                                    Spacer(Modifier.height(4.dp))
+                                    @Composable fun option(label: String, detail: String, icon: androidx.compose.ui.graphics.vector.ImageVector, action: () -> Unit) {
+                                        Surface(onClick = action, color = Color(0xFF2D2D2D), shape = RoundedCornerShape(12.dp), border = BorderStroke(1.dp, Color(0xFF454545)), modifier = Modifier.fillMaxWidth()) {
+                                            Row(Modifier.padding(horizontal = 14.dp, vertical = 13.dp), verticalAlignment = Alignment.CenterVertically, horizontalArrangement = Arrangement.spacedBy(13.dp)) {
+                                                Icon(icon, null, tint = Color(0xFF35BCEB), modifier = Modifier.size(23.dp))
+                                                Column(Modifier.weight(1f)) {
+                                                    Text(label, color = Color.White, fontWeight = FontWeight.SemiBold, fontSize = 14.sp)
+                                                    Text(detail, color = Muted, fontSize = 10.sp)
+                                                }
+                                                Icon(Icons.Rounded.ChevronRight, null, tint = Muted)
+                                            }
+                                        }
+                                    }
+                                    option("Pasta dos jogos", "Localizar seus arquivos .nup", Icons.Rounded.FolderOpen) { settingsOpen = false; folderPicker.launch(folderUri) }
+                                    option("Aplicativos", "Escolher o que aparece na biblioteca", Icons.Rounded.Apps) { settingsOpen = false; tab = "Aplicativos" }
+                                    option("Perfil", "Alterar nome da saudação", Icons.Rounded.Person) { settingsOpen = false; nameDialog = true }
+                                    option("Todos os jogos", "Mostrar a biblioteca completa", Icons.Rounded.SportsEsports) { settingsOpen = false; libraryFilter = "Todos" }
+                                    option("Favoritos", "Ver seus jogos favoritos", Icons.Rounded.Favorite) { settingsOpen = false; libraryFilter = "Favoritos" }
+                                    option("Grupos", "Ver jogos organizados em grupos", Icons.Rounded.Folder) { settingsOpen = false; libraryFilter = "Grupos" }
+                                    option("Atualizar biblioteca", "Procurar jogos e aplicativos novamente", Icons.Rounded.Refresh) { settingsOpen = false; refreshToken++; apps = emptyList() }
+                                    TextButton(onClick = { settingsOpen = false }, modifier = Modifier.align(Alignment.End)) { Text("FECHAR", color = Color(0xFF35BCEB), fontWeight = FontWeight.Bold) }
+                                }
+                            }
                         }
                     }
                 }
@@ -242,7 +263,7 @@ class MainActivity : ComponentActivity() {
                     } else {
                         var focusedGameName by remember { mutableStateOf(games.firstOrNull()?.name ?: libraryApps.firstOrNull()?.name.orEmpty()) }
                         Spacer(Modifier.weight(0.35f))
-                        Text(focusedGameName.uppercase(), color = Color.White, fontSize = 25.sp, fontWeight = FontWeight.Medium, letterSpacing = 1.2.sp, maxLines = 1, overflow = TextOverflow.Ellipsis)
+                        Text(focusedGameName.uppercase(), color = Color(0xFF35BCEB), fontSize = 25.sp, fontWeight = FontWeight.Medium, letterSpacing = 1.2.sp, maxLines = 1, overflow = TextOverflow.Ellipsis)
                         Spacer(Modifier.weight(0.18f))
                         // A single continuous horizontal shelf; side tiles remain visible.
                         LazyRow(
@@ -273,10 +294,22 @@ class MainActivity : ComponentActivity() {
                         Spacer(Modifier.weight(1f))
                     }
                 } else {
-                    Column(Modifier.weight(1f).fillMaxWidth().padding(top = 24.dp)) {
-                        Text("APLICATIVOS", color = Color.White, fontSize = 25.sp, fontWeight = FontWeight.ExtraBold, letterSpacing = 1.sp)
-                        Spacer(Modifier.height(6.dp))
-                        Text("Escolha quais aplicativos aparecem na sua central de jogos.", color = Muted, fontSize = 12.sp)
+                    Column(Modifier.weight(1f).fillMaxWidth().padding(top = 12.dp)) {
+                        Row(Modifier.fillMaxWidth(), verticalAlignment = Alignment.CenterVertically) {
+                            Surface(onClick = { tab = "Biblioteca" }, color = Color(0xFF252525), shape = RoundedCornerShape(12.dp), border = BorderStroke(1.dp, Color(0xFF35BCEB))) {
+                                Row(Modifier.padding(horizontal = 14.dp, vertical = 10.dp), verticalAlignment = Alignment.CenterVertically, horizontalArrangement = Arrangement.spacedBy(7.dp)) {
+                                    Icon(Icons.Rounded.ArrowBack, null, tint = Color(0xFF35BCEB), modifier = Modifier.size(18.dp))
+                                    Text("VOLTAR", color = Color(0xFF35BCEB), fontSize = 11.sp, fontWeight = FontWeight.Bold)
+                                }
+                            }
+                            Spacer(Modifier.width(16.dp))
+                            Column {
+                                Text("APLICATIVOS", color = Color.White, fontSize = 25.sp, fontWeight = FontWeight.ExtraBold, letterSpacing = 1.sp)
+                                Text("SELECIONE O QUE ENTRA NA SUA BIBLIOTECA", color = Muted, fontSize = 9.sp, letterSpacing = .5.sp)
+                            }
+                        }
+                        Spacer(Modifier.height(12.dp))
+                        Text("Marque os aplicativos que deseja exibir na central de jogos.", color = Muted, fontSize = 12.sp)
                         Spacer(Modifier.height(18.dp))
                         LazyVerticalGrid(columns = GridCells.Adaptive(minSize = 230.dp), horizontalArrangement = Arrangement.spacedBy(12.dp), verticalArrangement = Arrangement.spacedBy(12.dp)) {
                             items(apps, key = { it.packageName }) { app ->
@@ -321,17 +354,44 @@ class MainActivity : ComponentActivity() {
                 if (isFavorite) Icon(Icons.Rounded.Favorite, "Favorito", tint = Color(0xFFE65B68), modifier = Modifier.align(Alignment.TopEnd).padding(8.dp))
             }
         }
-        if (editOpen) AlertDialog(onDismissRequest = { editOpen = false }, title = { Text("Editar jogo") }, text = {
-            Column(verticalArrangement = Arrangement.spacedBy(12.dp)) {
-                OutlinedTextField(value = draftTitle, onValueChange = { draftTitle = it }, label = { Text("Nome exibido") }, singleLine = true)
-                Row(verticalAlignment = Alignment.CenterVertically) {
-                    Checkbox(checked = favorite, onCheckedChange = { favorite = it })
-                    Text("Adicionar aos favoritos")
+        if (editOpen) Dialog(onDismissRequest = { editOpen = false }) {
+            Surface(color = Color(0xFF202020), shape = RoundedCornerShape(22.dp), border = BorderStroke(2.dp, Color(0xFF35BCEB)), modifier = Modifier.fillMaxWidth()) {
+                Column(Modifier.padding(22.dp), verticalArrangement = Arrangement.spacedBy(14.dp)) {
+                    Text("PERSONALIZAR JOGO", color = Color(0xFF35BCEB), fontSize = 19.sp, fontWeight = FontWeight.ExtraBold, letterSpacing = 1.sp)
+                    Text("Ajuste como este jogo aparece na sua biblioteca.", color = Muted, fontSize = 12.sp)
+                    Row(verticalAlignment = Alignment.CenterVertically, horizontalArrangement = Arrangement.spacedBy(14.dp)) {
+                        Surface(color = Color(0xFF303030), shape = RoundedCornerShape(10.dp), border = BorderStroke(1.dp, Color(0xFF505050)), modifier = Modifier.size(76.dp)) {
+                            Box(contentAlignment = Alignment.Center) {
+                                if (cover.value != null) androidx.compose.foundation.Image(bitmap = cover.value!!, contentDescription = null, contentScale = ContentScale.Crop, modifier = Modifier.fillMaxSize())
+                                else Icon(Icons.Rounded.SportsEsports, null, tint = Muted, modifier = Modifier.size(34.dp))
+                            }
+                        }
+                        Column(Modifier.weight(1f), verticalArrangement = Arrangement.spacedBy(6.dp)) {
+                            Text(title, color = Color.White, fontWeight = FontWeight.Bold, maxLines = 2, overflow = TextOverflow.Ellipsis)
+                            OutlinedButton(onClick = { picker.launch(arrayOf("image/*")) }, border = BorderStroke(1.dp, Color(0xFF35BCEB)), contentPadding = PaddingValues(horizontal = 12.dp, vertical = 7.dp)) {
+                                Icon(Icons.Rounded.Image, null, tint = Color(0xFF35BCEB), modifier = Modifier.size(17.dp))
+                                Spacer(Modifier.width(7.dp))
+                                Text(if (coverUri == null) "ADICIONAR CAPA" else "TROCAR CAPA", color = Color(0xFF35BCEB), fontSize = 10.sp, fontWeight = FontWeight.Bold)
+                            }
+                        }
+                    }
+                    OutlinedTextField(value = draftTitle, onValueChange = { draftTitle = it }, label = { Text("Nome do jogo") }, singleLine = true, modifier = Modifier.fillMaxWidth(), colors = OutlinedTextFieldDefaults.colors(focusedBorderColor = Color(0xFF35BCEB), focusedLabelColor = Color(0xFF35BCEB), cursorColor = Color(0xFF35BCEB)))
+                    OutlinedTextField(value = draftGroup, onValueChange = { draftGroup = it }, label = { Text("Grupo / coleção") }, singleLine = true, modifier = Modifier.fillMaxWidth(), colors = OutlinedTextFieldDefaults.colors(focusedBorderColor = Color(0xFF35BCEB), focusedLabelColor = Color(0xFF35BCEB), cursorColor = Color(0xFF35BCEB)))
+                    Surface(color = Color(0xFF2D2D2D), shape = RoundedCornerShape(12.dp), modifier = Modifier.fillMaxWidth().clickable { favorite = !favorite }) {
+                        Row(Modifier.padding(horizontal = 14.dp, vertical = 10.dp), verticalAlignment = Alignment.CenterVertically) {
+                            Icon(Icons.Rounded.Favorite, null, tint = if (favorite) Color(0xFFE65B68) else Muted)
+                            Spacer(Modifier.width(10.dp))
+                            Text("Adicionar aos favoritos", color = Color.White, modifier = Modifier.weight(1f), fontSize = 13.sp)
+                            Checkbox(checked = favorite, onCheckedChange = { favorite = it }, colors = CheckboxDefaults.colors(checkedColor = Color(0xFF35BCEB)))
+                        }
+                    }
+                    Row(Modifier.fillMaxWidth(), horizontalArrangement = Arrangement.spacedBy(10.dp)) {
+                        OutlinedButton(onClick = { editOpen = false }, modifier = Modifier.weight(1f), border = BorderStroke(1.dp, Color(0xFF555555))) { Text("CANCELAR", color = Color.White, fontSize = 11.sp) }
+                        Button(onClick = { title = draftTitle.ifBlank { originalName }; prefs.edit().putString("edit_name_" + key, title).apply(); groupName = draftGroup.trim(); onMetadataChanged(favorite, groupName); editOpen = false; onFocusName(title) }, modifier = Modifier.weight(1f), colors = ButtonDefaults.buttonColors(containerColor = Color(0xFF35BCEB))) { Text("SALVAR", color = Color(0xFF101820), fontWeight = FontWeight.ExtraBold, fontSize = 11.sp) }
+                    }
                 }
-                OutlinedTextField(value = draftGroup, onValueChange = { draftGroup = it }, label = { Text("Grupo") }, singleLine = true)
-                OutlinedButton(onClick = { picker.launch(arrayOf("image/*")) }) { Icon(Icons.Rounded.Image, null); Spacer(Modifier.width(8.dp)); Text(if (coverUri == null) "Escolher capa" else "Trocar capa") }
             }
-        }, confirmButton = { TextButton(onClick = { title = draftTitle.ifBlank { originalName }; prefs.edit().putString("edit_name_" + key, title).apply(); groupName = draftGroup.trim(); onMetadataChanged(favorite, groupName); editOpen = false; onFocusName(title) }) { Text("Salvar") } }, dismissButton = { TextButton(onClick = { editOpen = false }) { Text("Cancelar") } })
+        }
     }
     @Composable
     private fun SelectableAppTile(app: InstalledGame, selected: Boolean, onToggle: () -> Unit, onLaunch: () -> Unit) {
