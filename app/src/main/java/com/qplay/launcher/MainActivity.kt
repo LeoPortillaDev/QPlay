@@ -227,7 +227,7 @@ class MainActivity : ComponentActivity() {
                         }
                         if (settingsOpen) Dialog(
                             onDismissRequest = { settingsOpen = false },
-                            properties = androidx.compose.ui.window.DialogProperties(usePlatformDefaultWidth = false, decorFitsSystemWindows = true)
+                            properties = androidx.compose.ui.window.DialogProperties(usePlatformDefaultWidth = false, decorFitsSystemWindows = false)
                         ) {
                             BoxWithConstraints(Modifier.fillMaxSize().background(Bg)) {
                                 val compact = maxWidth < 820.dp || maxHeight < 460.dp
@@ -601,47 +601,75 @@ class MainActivity : ComponentActivity() {
             }
         }
 
-        if (editOpen) Dialog(onDismissRequest = { editOpen = false }) {
-            Surface(color = Color(0xFF202020), shape = RoundedCornerShape(22.dp), border = BorderStroke(2.dp, Color(0xFF35BCEB)), modifier = Modifier.fillMaxWidth()) {
-                Column(Modifier.padding(22.dp), verticalArrangement = Arrangement.spacedBy(14.dp)) {
-                    Text("PERSONALIZAR JOGO", color = Color(0xFF35BCEB), fontSize = 19.sp, fontWeight = FontWeight.ExtraBold, letterSpacing = 1.sp)
-                    Text("Ajuste como este jogo aparece na sua biblioteca.", color = Muted, fontSize = 12.sp)
-                    Row(verticalAlignment = Alignment.CenterVertically, horizontalArrangement = Arrangement.spacedBy(14.dp)) {
-                        Surface(color = Color(0xFF303030), shape = RoundedCornerShape(10.dp), border = BorderStroke(1.dp, Color(0xFF505050)), modifier = Modifier.size(76.dp)) {
-                            Box(contentAlignment = Alignment.Center) {
-                                if (cover.value != null) androidx.compose.foundation.Image(bitmap = cover.value!!, contentDescription = null, contentScale = ContentScale.Crop, modifier = Modifier.fillMaxSize())
-                                else Icon(Icons.Rounded.SportsEsports, null, tint = Muted, modifier = Modifier.size(34.dp))
-                            }
-                        }
-                        Column(Modifier.weight(1f), verticalArrangement = Arrangement.spacedBy(6.dp)) {
-                            Text(title, color = Color.White, fontWeight = FontWeight.Bold, maxLines = 2, overflow = TextOverflow.Ellipsis)
-                            Column(verticalArrangement = Arrangement.spacedBy(7.dp)) {
-                                OutlinedButton(onClick = { scraperQuery = title; scraperOpen = true; scraperStatus = ""; scraperResults = emptyList() }, border = BorderStroke(1.dp, Color(0xFF35BCEB)), contentPadding = PaddingValues(horizontal = 12.dp, vertical = 7.dp)) {
-                                    Icon(Icons.Rounded.Search, null, tint = Color(0xFF35BCEB), modifier = Modifier.size(17.dp))
-                                    Spacer(Modifier.width(7.dp))
-                                    Text("BUSCAR CAPA ONLINE", color = Color(0xFF35BCEB), fontSize = 10.sp, fontWeight = FontWeight.Bold)
-                                }
-                                OutlinedButton(onClick = { picker.launch(arrayOf("image/*")) }, border = BorderStroke(1.dp, Color(0xFF35BCEB)), contentPadding = PaddingValues(horizontal = 12.dp, vertical = 7.dp)) {
-                                    Icon(Icons.Rounded.Image, null, tint = Color(0xFF35BCEB), modifier = Modifier.size(17.dp))
-                                    Spacer(Modifier.width(7.dp))
-                                    Text(if (coverUri == null) "ESCOLHER DA GALERIA" else "TROCAR CAPA", color = Color(0xFF35BCEB), fontSize = 10.sp, fontWeight = FontWeight.Bold)
-                                }
-                            }
-                        }
-                    }
-                    OutlinedTextField(value = draftTitle, onValueChange = { draftTitle = it }, label = { Text("Nome do jogo") }, singleLine = true, modifier = Modifier.fillMaxWidth(), colors = OutlinedTextFieldDefaults.colors(focusedBorderColor = Color(0xFF35BCEB), focusedLabelColor = Color(0xFF35BCEB), cursorColor = Color(0xFF35BCEB)))
-                    OutlinedTextField(value = draftGroup, onValueChange = { draftGroup = it }, label = { Text("Grupo / coleção") }, singleLine = true, modifier = Modifier.fillMaxWidth(), colors = OutlinedTextFieldDefaults.colors(focusedBorderColor = Color(0xFF35BCEB), focusedLabelColor = Color(0xFF35BCEB), cursorColor = Color(0xFF35BCEB)))
-                    Surface(color = Color(0xFF2D2D2D), shape = RoundedCornerShape(12.dp), modifier = Modifier.fillMaxWidth().clickable { favorite = !favorite }) {
-                        Row(Modifier.padding(horizontal = 14.dp, vertical = 10.dp), verticalAlignment = Alignment.CenterVertically) {
-                            Icon(Icons.Rounded.Favorite, null, tint = if (favorite) Color(0xFFE65B68) else Muted)
+        if (editOpen) Dialog(
+            onDismissRequest = { editOpen = false },
+            properties = androidx.compose.ui.window.DialogProperties(usePlatformDefaultWidth = false, decorFitsSystemWindows = false)
+        ) {
+            BoxWithConstraints(Modifier.fillMaxSize().background(Color(0x99000000)), contentAlignment = Alignment.Center) {
+                val compactEdit = maxWidth < 760.dp || maxHeight < 440.dp
+                Surface(
+                    color = Color(0xFF202020),
+                    shape = RoundedCornerShape(18.dp),
+                    border = BorderStroke(2.dp, Color(0xFF35BCEB)),
+                    modifier = Modifier.fillMaxWidth(if (compactEdit) 0.98f else 0.94f)
+                        .fillMaxHeight(if (compactEdit) 0.96f else 0.90f)
+                ) {
+                    Column(Modifier.fillMaxSize().padding(if (compactEdit) 12.dp else 20.dp)) {
+                        Row(Modifier.fillMaxWidth(), verticalAlignment = Alignment.CenterVertically) {
+                            Icon(Icons.Rounded.Tune, null, tint = Color(0xFF35BCEB), modifier = Modifier.size(25.dp))
                             Spacer(Modifier.width(10.dp))
-                            Text("Adicionar aos favoritos", color = Color.White, modifier = Modifier.weight(1f), fontSize = 13.sp)
-                            Checkbox(checked = favorite, onCheckedChange = { favorite = it }, colors = CheckboxDefaults.colors(checkedColor = Color(0xFF35BCEB)))
+                            Column(Modifier.weight(1f)) {
+                                Text("PERSONALIZAR JOGO", color = Color(0xFF35BCEB), fontSize = if (compactEdit) 16.sp else 21.sp, fontWeight = FontWeight.ExtraBold)
+                                Text(title, color = Muted, fontSize = 11.sp, maxLines = 1, overflow = TextOverflow.Ellipsis)
+                            }
+                            TextButton(onClick = { editOpen = false }) { Text("FECHAR  ✕", color = Color(0xFF35BCEB), fontWeight = FontWeight.Bold) }
                         }
-                    }
-                    Row(Modifier.fillMaxWidth(), horizontalArrangement = Arrangement.spacedBy(10.dp)) {
-                        OutlinedButton(onClick = { editOpen = false }, modifier = Modifier.weight(1f), border = BorderStroke(1.dp, Color(0xFF555555))) { Text("CANCELAR", color = Color.White, fontSize = 11.sp) }
-                        Button(onClick = { title = draftTitle.ifBlank { originalName }; prefs.edit().putString("edit_name_" + key, title).apply(); groupName = draftGroup.trim(); onMetadataChanged(favorite, groupName); editOpen = false; onFocusName(title) }, modifier = Modifier.weight(1f), colors = ButtonDefaults.buttonColors(containerColor = Color(0xFF35BCEB))) { Text("SALVAR", color = Color(0xFF101820), fontWeight = FontWeight.ExtraBold, fontSize = 11.sp) }
+                        Divider(color = Color(0xFF555555), modifier = Modifier.padding(top = 8.dp, bottom = 12.dp))
+                        Row(Modifier.weight(1f).fillMaxWidth(), horizontalArrangement = Arrangement.spacedBy(18.dp)) {
+                            Column(Modifier.fillMaxHeight().fillMaxWidth(if (compactEdit) 0.34f else 0.30f), verticalArrangement = Arrangement.spacedBy(8.dp)) {
+                                Text("CAPA DO JOGO", color = Color.White, fontSize = 11.sp, fontWeight = FontWeight.Bold, letterSpacing = 1.sp)
+                                Surface(color = Color(0xFF151515), shape = RoundedCornerShape(10.dp), border = BorderStroke(1.dp, Color(0xFF454545)), modifier = Modifier.weight(1f).fillMaxWidth()) {
+                                    Box(contentAlignment = Alignment.Center) {
+                                        if (cover.value != null) androidx.compose.foundation.Image(bitmap = cover.value!!, contentDescription = "Capa atual", contentScale = ContentScale.Fit, modifier = Modifier.fillMaxSize().padding(6.dp))
+                                        else Column(horizontalAlignment = Alignment.CenterHorizontally, verticalArrangement = Arrangement.spacedBy(8.dp)) {
+                                            Icon(Icons.Rounded.SportsEsports, null, tint = Muted, modifier = Modifier.size(42.dp))
+                                            Text("SEM CAPA", color = Muted, fontSize = 10.sp, fontWeight = FontWeight.Bold)
+                                        }
+                                    }
+                                }
+                                OutlinedButton(onClick = { scraperQuery = title; scraperOpen = true; scraperStatus = ""; scraperResults = emptyList() }, modifier = Modifier.fillMaxWidth(), border = BorderStroke(1.dp, Color(0xFF35BCEB)), contentPadding = PaddingValues(horizontal = 8.dp, vertical = 6.dp)) {
+                                    Icon(Icons.Rounded.Search, null, tint = Color(0xFF35BCEB), modifier = Modifier.size(16.dp))
+                                    Spacer(Modifier.width(5.dp))
+                                    Text("BUSCAR CAPA", color = Color(0xFF35BCEB), fontSize = 10.sp, fontWeight = FontWeight.Bold)
+                                }
+                                OutlinedButton(onClick = { picker.launch(arrayOf("image/*")) }, modifier = Modifier.fillMaxWidth(), border = BorderStroke(1.dp, Color(0xFF555555)), contentPadding = PaddingValues(horizontal = 8.dp, vertical = 6.dp)) {
+                                    Icon(Icons.Rounded.Image, null, tint = Color.White, modifier = Modifier.size(16.dp))
+                                    Spacer(Modifier.width(5.dp))
+                                    Text("GALERIA", color = Color.White, fontSize = 10.sp, fontWeight = FontWeight.Bold)
+                                }
+                            }
+                            Divider(Modifier.fillMaxHeight().width(1.dp), color = Color(0xFF484848))
+                            Column(Modifier.weight(1f).fillMaxHeight().verticalScroll(rememberScrollState()), verticalArrangement = Arrangement.spacedBy(10.dp)) {
+                                Text("INFORMAÇÕES", color = Color.White, fontSize = 11.sp, fontWeight = FontWeight.Bold, letterSpacing = 1.sp)
+                                OutlinedTextField(value = draftTitle, onValueChange = { draftTitle = it }, label = { Text("Nome do jogo") }, singleLine = true, modifier = Modifier.fillMaxWidth(), colors = OutlinedTextFieldDefaults.colors(focusedBorderColor = Color(0xFF35BCEB), focusedLabelColor = Color(0xFF35BCEB), cursorColor = Color(0xFF35BCEB)))
+                                OutlinedTextField(value = draftGroup, onValueChange = { draftGroup = it }, label = { Text("Grupo / coleção") }, singleLine = true, modifier = Modifier.fillMaxWidth(), colors = OutlinedTextFieldDefaults.colors(focusedBorderColor = Color(0xFF35BCEB), focusedLabelColor = Color(0xFF35BCEB), cursorColor = Color(0xFF35BCEB)))
+                                Surface(color = Color(0xFF2D2D2D), shape = RoundedCornerShape(10.dp), modifier = Modifier.fillMaxWidth().clickable { favorite = !favorite }) {
+                                    Row(Modifier.padding(horizontal = 12.dp, vertical = 7.dp), verticalAlignment = Alignment.CenterVertically) {
+                                        Icon(Icons.Rounded.Favorite, null, tint = if (favorite) Color(0xFFE65B68) else Muted)
+                                        Spacer(Modifier.width(9.dp))
+                                        Text("Adicionar aos favoritos", color = Color.White, modifier = Modifier.weight(1f), fontSize = 12.sp)
+                                        Checkbox(checked = favorite, onCheckedChange = { favorite = it }, colors = CheckboxDefaults.colors(checkedColor = Color(0xFF35BCEB)))
+                                    }
+                                }
+                                Text("As alterações serão salvas na biblioteca deste dispositivo.", color = Muted, fontSize = 10.sp)
+                            }
+                        }
+                        Divider(color = Color(0xFF555555), modifier = Modifier.padding(top = 10.dp))
+                        Row(Modifier.fillMaxWidth().padding(top = 7.dp), horizontalArrangement = Arrangement.End, verticalAlignment = Alignment.CenterVertically) {
+                            OutlinedButton(onClick = { editOpen = false }, border = BorderStroke(1.dp, Color(0xFF555555))) { Text("CANCELAR", color = Color.White) }
+                            Spacer(Modifier.width(10.dp))
+                            Button(onClick = { title = draftTitle.ifBlank { originalName }; prefs.edit().putString("edit_name_" + key, title).apply(); groupName = draftGroup.trim(); onMetadataChanged(favorite, groupName); editOpen = false; onFocusName(title) }, colors = ButtonDefaults.buttonColors(containerColor = Color(0xFF35BCEB))) { Text("SALVAR ALTERAÇÕES", color = Color(0xFF101820), fontWeight = FontWeight.ExtraBold) }
+                        }
                     }
                 }
             }
