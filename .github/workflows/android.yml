@@ -2,7 +2,7 @@ name: QPlay Android APK
 
 on:
   push:
-    branches: [main]
+    branches: [main, experiment/controller-overlay]
   workflow_dispatch:
 
 permissions:
