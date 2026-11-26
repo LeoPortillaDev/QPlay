@@ -336,14 +336,14 @@ class MainActivity : ComponentActivity() {
                         }
                     } else {
                         var focusedGameName by remember { mutableStateOf(games.firstOrNull()?.name ?: libraryApps.firstOrNull()?.name.orEmpty()) }
-                        Spacer(Modifier.weight(1f))
-                        Text(focusedGameName.uppercase(), color = Color(0xFF35BCEB), fontSize = 19.sp, fontWeight = FontWeight.Medium, letterSpacing = 1.0.sp, maxLines = 1, overflow = TextOverflow.Ellipsis, textAlign = TextAlign.Start, modifier = Modifier.fillMaxWidth().padding(start = shelfSidePadding))
-                        Spacer(Modifier.height(16.dp))
-                        // Center a short shelf with equal margins; keep a small inset when it scrolls.
+                        // Align the title with the first visible game tile.
                         val shelfWidth = this@BoxWithConstraints.maxWidth * 0.95f
                         val shelfSpacing = (tileSize * 0.055f).coerceAtLeast(8.dp)
                         val shelfContentWidth = tileSize * totalItems.toFloat() + shelfSpacing * (totalItems - 1).toFloat()
                         val shelfSidePadding = if (shelfContentWidth <= shelfWidth) (shelfWidth - shelfContentWidth) / 2f else shelfWidth * 0.045f
+                        Spacer(Modifier.weight(1f))
+                        Text(focusedGameName.uppercase(), color = Color(0xFF35BCEB), fontSize = 19.sp, fontWeight = FontWeight.Medium, letterSpacing = 1.0.sp, maxLines = 1, overflow = TextOverflow.Ellipsis, textAlign = TextAlign.Start, modifier = Modifier.fillMaxWidth().padding(start = shelfSidePadding))
+                        Spacer(Modifier.height(16.dp))
                         LazyRow(
                             contentPadding = PaddingValues(horizontal = shelfSidePadding),
                             horizontalArrangement = Arrangement.spacedBy(shelfSpacing),
