@@ -199,7 +199,7 @@ class MainActivity : ComponentActivity() {
         BackHandler(enabled = settingsOpen || nameDialog || tab != "Biblioteca") { if (settingsOpen) settingsOpen = false else tab = "Biblioteca" }
 
         BoxWithConstraints(Modifier.fillMaxSize().background(Bg)) {
-            val tileSize = (maxWidth * 0.205f).coerceIn(148.dp, 226.dp)
+            val tileSize = (maxWidth * 0.19f).coerceIn(136.dp, 210.dp)
             val libraryApps = apps.filter { it.packageName in selectedApps }
             val visibleGames = games.filter { game -> when (libraryFilter) { "Favoritos" -> game.uri.toString() in favoriteKeys; "Grupos" -> !groupMap[game.uri.toString()].isNullOrBlank(); else -> true } }
             val visibleApps = libraryApps.filter { app -> when (libraryFilter) { "Favoritos" -> app.packageName in favoriteKeys; "Grupos" -> !groupMap[app.packageName].isNullOrBlank(); else -> true } }
@@ -312,10 +312,10 @@ class MainActivity : ComponentActivity() {
                         Spacer(Modifier.weight(0.18f))
                         // A single continuous horizontal shelf; side tiles remain visible.
                         LazyRow(
-                            contentPadding = PaddingValues(horizontal = 0.dp),
-                            horizontalArrangement = Arrangement.spacedBy((tileSize * 0.075f).coerceAtLeast(10.dp)),
+                            contentPadding = PaddingValues(horizontal = maxWidth * 0.055f),
+                            horizontalArrangement = Arrangement.spacedBy((tileSize * 0.055f).coerceAtLeast(8.dp)),
                             verticalAlignment = Alignment.CenterVertically,
-                            modifier = Modifier.fillMaxWidth().height(tileSize + 34.dp)
+                            modifier = Modifier.fillMaxWidth().height(tileSize + 42.dp).padding(vertical = 4.dp)
                         ) {
                             rowItems(visibleGames, key = { it.uri.toString() }) { game ->
                                 val key = game.uri.toString()
