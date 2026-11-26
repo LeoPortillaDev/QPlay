@@ -236,6 +236,14 @@ class MainActivity : ComponentActivity() {
                                 val dialogWindow = (dialogView.parent as? DialogWindowProvider)?.window
                                 val decorView = dialogWindow?.decorView
                                 val previousSystemUiVisibility = decorView?.systemUiVisibility
+                                val previousWidth = dialogWindow?.attributes?.width
+                                val previousHeight = dialogWindow?.attributes?.height
+                                // Force the actual Android dialog window to match the available display,
+                                // not just the Compose content hosted inside a potentially smaller window.
+                                dialogWindow?.setLayout(
+                                    android.view.ViewGroup.LayoutParams.MATCH_PARENT,
+                                    android.view.ViewGroup.LayoutParams.MATCH_PARENT
+                                )
                                 if (decorView != null) {
                                     decorView.systemUiVisibility = (previousSystemUiVisibility ?: 0) or
                                         android.view.View.SYSTEM_UI_FLAG_FULLSCREEN or
@@ -246,9 +254,12 @@ class MainActivity : ComponentActivity() {
                                     if (decorView != null && previousSystemUiVisibility != null) {
                                         decorView.systemUiVisibility = previousSystemUiVisibility
                                     }
+                                    if (dialogWindow != null && previousWidth != null && previousHeight != null) {
+                                        dialogWindow.setLayout(previousWidth, previousHeight)
+                                    }
                                 }
                             }
-                            BoxWithConstraints(Modifier.fillMaxSize().background(Bg)) {
+                            BoxWithConstraints(Modifier.fillMaxSize().background(Bg).windowInsetsPadding(androidx.compose.foundation.layout.WindowInsets(0, 0, 0, 0))) {
                                 val compact = maxWidth < 820.dp || maxHeight < 460.dp
                                 val sideWidth = if (compact) 132.dp else (maxWidth * 0.22f).coerceIn(180.dp, 230.dp)
                                 val outerPad = if (compact) 8.dp else 16.dp
