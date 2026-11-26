@@ -271,7 +271,7 @@ class MainActivity : ComponentActivity() {
                                 )
                             } else {
                                 androidx.compose.foundation.Image(
-                                    painterResource(com.qplay.launcher.R.drawable.qplay_logo),
+                                    painterResource(com.qplay.launcher.R.mipmap.qplay_launcher),
                                     contentDescription = "QPlay",
                                     modifier = Modifier.size(42.dp)
                                 )
@@ -576,10 +576,10 @@ class MainActivity : ComponentActivity() {
         val tileScale by animateFloatAsState(if (focused) 1.07f else 1f, label = "tileScale")
         Surface(color = if (focused) Color(0xFF343434) else Color(0xFF292929), shape = RoundedCornerShape(3.dp), border = BorderStroke(if (focused) 4.dp else 2.dp, if (focused) Color(0xFF35BCEB) else Color(0xFF3A3A3A)), modifier = Modifier.width(tileSize).height(tileSize).graphicsLayer { scaleX = tileScale; scaleY = tileScale }.onFocusChanged { focused = it.isFocused; if (it.isFocused) { onFocusName(title); playSoundEffect(android.view.SoundEffectConstants.NAVIGATION_DOWN) } }.combinedClickable(onClick = { playSoundEffect(android.view.SoundEffectConstants.CLICK); onClick() }, onLongClick = { playSoundEffect(android.view.SoundEffectConstants.CLICK) })) {
             Box(Modifier.fillMaxSize()) {
-                val displayedIcon = cover.value ?: nativeIcon.value
+                val displayedIcon = if (isNativeApp) nativeIcon.value ?: cover.value else cover.value
                 if (displayedIcon != null) {
                     Box(Modifier.fillMaxSize().background(Color(0xFF303030)), contentAlignment = Alignment.Center) {
-                        androidx.compose.foundation.Image(bitmap = displayedIcon, contentDescription = title, contentScale = if (isNativeApp && cover.value == null) ContentScale.Fit else ContentScale.Crop, modifier = Modifier.fillMaxSize().padding(if (isNativeApp && cover.value == null) 18.dp else 0.dp))
+                        androidx.compose.foundation.Image(bitmap = displayedIcon, contentDescription = title, contentScale = if (isNativeApp && nativeIcon.value != null) ContentScale.Fit else ContentScale.Crop, modifier = Modifier.fillMaxSize().padding(if (isNativeApp && nativeIcon.value != null) 18.dp else 0.dp))
                     }
                 } else Box(Modifier.fillMaxSize().background(Color(0xFF303030)), contentAlignment = Alignment.Center) { Icon(Icons.Rounded.SportsEsports, null, tint = Color(0xFF777777), modifier = Modifier.size(58.dp)) }
                 if (isFavorite) Icon(Icons.Rounded.Favorite, "Favorito", tint = Color(0xFFE65B68), modifier = Modifier.align(Alignment.TopEnd).padding(8.dp))
