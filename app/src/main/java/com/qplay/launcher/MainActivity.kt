@@ -321,8 +321,9 @@ class MainActivity : ComponentActivity() {
                         Text(focusedGameName.uppercase(), color = Color(0xFF35BCEB), fontSize = 25.sp, fontWeight = FontWeight.Medium, letterSpacing = 1.2.sp, maxLines = 1, overflow = TextOverflow.Ellipsis)
                         Spacer(Modifier.weight(0.18f))
                         // A single continuous horizontal shelf; side tiles remain visible.
+                        val shelfSidePadding = this@BoxWithConstraints.maxWidth * 0.055f
                         LazyRow(
-                            contentPadding = PaddingValues(horizontal = maxWidth * 0.055f),
+                            contentPadding = PaddingValues(horizontal = shelfSidePadding),
                             horizontalArrangement = Arrangement.spacedBy((tileSize * 0.055f).coerceAtLeast(8.dp)),
                             verticalAlignment = Alignment.CenterVertically,
                             modifier = Modifier.fillMaxWidth().height(tileSize + 42.dp).padding(vertical = 4.dp)
