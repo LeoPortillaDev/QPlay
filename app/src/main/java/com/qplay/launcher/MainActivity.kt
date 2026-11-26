@@ -49,6 +49,7 @@ import androidx.compose.ui.layout.ContentScale
 import android.graphics.BitmapFactory
 import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.text.style.TextOverflow
+import androidx.compose.ui.text.style.TextAlign
 import androidx.compose.ui.unit.dp
 import androidx.compose.ui.unit.sp
 import androidx.documentfile.provider.DocumentFile
@@ -205,7 +206,7 @@ class MainActivity : ComponentActivity() {
             val visibleApps = libraryApps.filter { app -> when (libraryFilter) { "Favoritos" -> app.packageName in favoriteKeys; "Grupos" -> !groupMap[app.packageName].isNullOrBlank(); else -> true } }
             val totalItems = visibleGames.size + visibleApps.size
 
-            Column(Modifier.fillMaxSize().background(Bg).padding(horizontal = maxWidth * 0.025f, vertical = maxHeight * 0.045f)) {
+            Column(Modifier.fillMaxSize().background(Bg).padding(horizontal = maxWidth * 0.025f, vertical = maxHeight * 0.025f)) {
                 // Top system strip: discreet brand, status and settings.
                 Row(Modifier.fillMaxWidth(), verticalAlignment = Alignment.CenterVertically) {
                     androidx.compose.foundation.Image(
@@ -318,10 +319,10 @@ class MainActivity : ComponentActivity() {
                     } else {
                         var focusedGameName by remember { mutableStateOf(games.firstOrNull()?.name ?: libraryApps.firstOrNull()?.name.orEmpty()) }
                         Spacer(Modifier.weight(0.35f))
-                        Text(focusedGameName.uppercase(), color = Color(0xFF35BCEB), fontSize = 25.sp, fontWeight = FontWeight.Medium, letterSpacing = 1.2.sp, maxLines = 1, overflow = TextOverflow.Ellipsis)
+                        Text(focusedGameName.uppercase(), color = Color(0xFF35BCEB), fontSize = 25.sp, fontWeight = FontWeight.Medium, letterSpacing = 1.2.sp, maxLines = 1, overflow = TextOverflow.Ellipsis, textAlign = TextAlign.Center, modifier = Modifier.fillMaxWidth())
                         Spacer(Modifier.weight(0.18f))
                         // A single continuous horizontal shelf; side tiles remain visible.
-                        val shelfSidePadding = this@BoxWithConstraints.maxWidth * 0.055f
+                        val shelfSidePadding = this@BoxWithConstraints.maxWidth * 0.045f
                         LazyRow(
                             contentPadding = PaddingValues(horizontal = shelfSidePadding),
                             horizontalArrangement = Arrangement.spacedBy((tileSize * 0.055f).coerceAtLeast(8.dp)),
@@ -421,7 +422,7 @@ class MainActivity : ComponentActivity() {
 
         if (scraperOpen) Dialog(
             onDismissRequest = { scraperOpen = false },
-            properties = androidx.compose.ui.window.DialogProperties(usePlatformDefaultWidth = false, decorFitsSystemWindows = true)
+            properties = androidx.compose.ui.window.DialogProperties(usePlatformDefaultWidth = false, decorFitsSystemWindows = false)
         ) {
             BoxWithConstraints(Modifier.fillMaxSize().background(Color(0x99000000)), contentAlignment = Alignment.Center) {
                 val compact = maxWidth < 760.dp || maxHeight < 500.dp
@@ -429,7 +430,7 @@ class MainActivity : ComponentActivity() {
                     color = Color(0xFF202020),
                     shape = RoundedCornerShape(18.dp),
                     border = BorderStroke(2.dp, Color(0xFF35BCEB)),
-                    modifier = Modifier.fillMaxWidth(if (compact) 0.96f else 0.92f).fillMaxHeight(if (compact) 0.94f else 0.88f)
+                    modifier = Modifier.fillMaxWidth(0.995f).fillMaxHeight(0.99f)
                 ) {
                     Column(Modifier.fillMaxSize().padding(if (compact) 12.dp else 20.dp)) {
                         Row(Modifier.fillMaxWidth(), verticalAlignment = Alignment.CenterVertically) {
@@ -481,28 +482,49 @@ class MainActivity : ComponentActivity() {
                                         scraperScope.launch {
                                             try {
                                                 val matches = withContext(Dispatchers.IO) {
-                                                    val api = URL("https://api.github.com/repos/libretro-thumbnails/" + scraperSystem + "/contents/Named_Boxarts")
-                                                    val conn = api.openConnection() as HttpURLConnection
-                                                    conn.connectTimeout = 15000
-                                                    conn.readTimeout = 20000
-                                                    conn.setRequestProperty("Accept", "application/vnd.github+json")
-                                                    val body = conn.inputStream.bufferedReader().use { it.readText() }
-                                                    conn.disconnect()
-                                                    val array = JSONArray(body)
-                                                    val query = scraperQuery.trim().lowercase().replace(Regex("[^a-z0-9 ]"), "").replace(Regex("\\s+"), " ")
+                                                    val base = "https://api.github.com/repos/libretro-thumbnails/" + scraperSystem
+                                                    fun getJson(url: String): String {
+                                                        val conn = URL(url).openConnection() as HttpURLConnection
+                                                        conn.connectTimeout = 15000
+                                                        conn.readTimeout = 30000
+                                                        conn.setRequestProperty("Accept", "application/vnd.github+json")
+                                                        conn.setRequestProperty("User-Agent", "QPlay-Android")
+                                                        conn.setRequestProperty("X-GitHub-Api-Version", "2022-11-28")
+                                                        try {
+                                                            val code = conn.responseCode
+                                                            val stream = if (code in 200..299) conn.inputStream else conn.errorStream
+                                                            val body = stream?.bufferedReader()?.use { it.readText() }.orEmpty()
+                                                            if (code !in 200..299) throw IllegalStateException("Catálogo respondeu HTTP $code")
+                                                            return body
+                                                        } finally { conn.disconnect() }
+                                                    }
+                                                    val repository = org.json.JSONObject(getJson(base))
+                                                    val branch = repository.optString("default_branch").ifBlank { "master" }
+                                                    val treeJson = org.json.JSONObject(getJson("$base/git/trees/$branch?recursive=1"))
+                                                    val tree = treeJson.optJSONArray("tree") ?: JSONArray()
+                                                    val query = scraperQuery.trim().lowercase()
+                                                        .replace(Regex("[^a-z0-9 ]"), " ")
+                                                        .replace(Regex("\\s+"), " ").trim()
                                                     val words = query.split(" ").filter { it.length > 1 }
                                                     val scored = mutableListOf<Triple<Int, String, String>>()
-                                                    for (i in 0 until array.length()) {
-                                                        val item = array.getJSONObject(i)
-                                                        val name = item.optString("name")
-                                                        val clean = name.substringBeforeLast(".").lowercase().replace(Regex("[^a-z0-9 ]"), " ").replace(Regex("\\s+"), " ").trim()
+                                                    for (i in 0 until tree.length()) {
+                                                        val item = tree.optJSONObject(i) ?: continue
+                                                        val path = item.optString("path")
+                                                        if (!path.startsWith("Named_Boxarts/")) continue
+                                                        if (!path.substringAfterLast('/').contains('.')) continue
+                                                        val name = path.substringAfterLast('/')
+                                                        val clean = name.substringBeforeLast(".").lowercase()
+                                                            .replace(Regex("[^a-z0-9 ]"), " ")
+                                                            .replace(Regex("\\s+"), " ").trim()
                                                         val score = words.count { clean.contains(it) }
                                                         if (score > 0) {
-                                                            val download = item.optString("download_url")
-                                                            if (download.startsWith("https://")) scored.add(Triple(score, name, download))
+                                                            val encodedPath = Uri.encode(path, "/")
+                                                            val download = "https://raw.githubusercontent.com/libretro-thumbnails/$scraperSystem/$branch/$encodedPath"
+                                                            scored.add(Triple(score, name, download))
                                                         }
                                                     }
-                                                    scored.sortedByDescending { it.first }.take(18).map { it.second to it.third }
+                                                    scored.sortedWith(compareByDescending<Triple<Int, String, String>> { it.first }
+                                                        .thenBy { it.second.length }).take(24).map { it.second to it.third }
                                                 }
                                                 scraperResults = matches
                                                 scraperStatus = if (matches.isEmpty()) "Nenhuma capa encontrada neste console. Tente outro nome ou plataforma." else "${matches.size} capas encontradas."
@@ -612,8 +634,7 @@ class MainActivity : ComponentActivity() {
                     color = Color(0xFF202020),
                     shape = RoundedCornerShape(18.dp),
                     border = BorderStroke(2.dp, Color(0xFF35BCEB)),
-                    modifier = Modifier.fillMaxWidth(if (compactEdit) 0.98f else 0.94f)
-                        .fillMaxHeight(if (compactEdit) 0.96f else 0.90f)
+                    modifier = Modifier.fillMaxWidth(0.995f).fillMaxHeight(0.99f)
                 ) {
                     Column(Modifier.fillMaxSize().padding(if (compactEdit) 12.dp else 20.dp)) {
                         Row(Modifier.fillMaxWidth(), verticalAlignment = Alignment.CenterVertically) {
