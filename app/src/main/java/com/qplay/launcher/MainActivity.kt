@@ -49,6 +49,7 @@ import androidx.compose.ui.graphics.asImageBitmap
 import androidx.compose.ui.graphics.ImageBitmap
 import androidx.compose.ui.layout.ContentScale
 import android.graphics.BitmapFactory
+import androidx.exifinterface.media.ExifInterface
 import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.text.style.TextOverflow
 import androidx.compose.ui.text.style.TextAlign
@@ -147,7 +148,14 @@ class MainActivity : ComponentActivity() {
         var favoriteKeys by remember { mutableStateOf(prefs.getStringSet("favorites", emptySet()).orEmpty()) }
         var groupMap by remember { mutableStateOf(prefs.all.filterKeys { it.startsWith("group_") }.mapKeys { it.key.removePrefix("group_") }.mapValues { it.value as? String ?: "" }) }
         var libraryFilter by remember { mutableStateOf("Todos") }
-        var settingsCategory by remember { mutableStateOf("Perfil") }
+        var settingsCategory by remember { mutableStateOf("Ícones Nintendo Switch") }
+        var settingsQuery by remember { mutableStateOf("") }
+        var settingsResults by remember { mutableStateOf<List<Pair<String, String>>>(emptyList()) }
+        var settingsBusy by remember { mutableStateOf(false) }
+        var settingsStatus by remember { mutableStateOf("Escolha um jogo do Switch e pesquise o ícone oficial.") }
+        var settingsTargetKey by remember { mutableStateOf("") }
+        var settingsTargetMenu by remember { mutableStateOf(false) }
+        val settingsScope = rememberCoroutineScope()
         var avatarUri by remember { mutableStateOf(prefs.getString("profile_avatar_uri", null)?.let(Uri::parse)) }
         val avatarPicker = rememberLauncherForActivityResult(ActivityResultContracts.OpenDocument()) { uri ->
             if (uri != null) {
@@ -163,7 +171,23 @@ class MainActivity : ComponentActivity() {
         val avatarBitmap = produceState<ImageBitmap?>(null, avatarUri) {
             value = withContext(Dispatchers.IO) {
                 try {
-                    avatarUri?.let { uri -> contentResolver.openInputStream(uri)?.use { BitmapFactory.decodeStream(it) }?.asImageBitmap() }
+                    avatarUri?.let { uri ->
+                        val orientation = contentResolver.openInputStream(uri)?.use { androidx.exifinterface.media.ExifInterface(it).getAttributeInt(androidx.exifinterface.media.ExifInterface.TAG_ORIENTATION, androidx.exifinterface.media.ExifInterface.ORIENTATION_NORMAL) } ?: androidx.exifinterface.media.ExifInterface.ORIENTATION_NORMAL
+                        val decoded = contentResolver.openInputStream(uri)?.use { BitmapFactory.decodeStream(it) }
+                        if (decoded == null) null else {
+                            val matrix = android.graphics.Matrix()
+                            when (orientation) {
+                                3 -> matrix.postRotate(180f)
+                                6 -> matrix.postRotate(90f)
+                                8 -> matrix.postRotate(270f)
+                                2 -> matrix.preScale(-1f, 1f)
+                                4 -> matrix.preScale(1f, -1f)
+                                5 -> { matrix.preScale(-1f, 1f); matrix.postRotate(90f) }
+                                7 -> { matrix.preScale(-1f, 1f); matrix.postRotate(270f) }
+                            }
+                            android.graphics.Bitmap.createBitmap(decoded, 0, 0, decoded.width, decoded.height, matrix, true).asImageBitmap()
+                        }
+                    }
                 } catch (_: Exception) { null }
             }
         }
@@ -297,92 +321,137 @@ class MainActivity : ComponentActivity() {
                                     }
                                 }
                             }
-                            BoxWithConstraints(Modifier.fillMaxSize().background(Bg).windowInsetsPadding(androidx.compose.foundation.layout.WindowInsets(0, 0, 0, 0))) {
-                                val compact = maxWidth < 820.dp || maxHeight < 460.dp
-                                val sideWidth = if (compact) 132.dp else (maxWidth * 0.22f).coerceIn(180.dp, 230.dp)
-                                val outerPad = if (compact) 8.dp else 16.dp
-                                Column(Modifier.fillMaxSize().background(Bg).padding(horizontal = if (compact) 6.dp else 10.dp, vertical = 4.dp)) {
-                                    Row(Modifier.fillMaxWidth().heightIn(min = 42.dp), verticalAlignment = Alignment.CenterVertically) {
-                                        Icon(Icons.Rounded.Settings, null, tint = Color(0xFF35BCEB), modifier = Modifier.size(if (compact) 22.dp else 28.dp))
-                                        Spacer(Modifier.width(8.dp))
-                                        Text("CONFIGURAÇÕES DO QPLAY", color = Color.White, fontSize = if (compact) 16.sp else 21.sp, fontWeight = FontWeight.Bold, maxLines = 1, overflow = TextOverflow.Ellipsis, modifier = Modifier.weight(1f))
-                                        TextButton(onClick = { settingsOpen = false }, contentPadding = PaddingValues(horizontal = 8.dp, vertical = 4.dp)) { Text("VOLTAR", color = Color(0xFF35BCEB), fontWeight = FontWeight.Bold, fontSize = if (compact) 11.sp else 13.sp) }
-                                    }
-                                    Divider(color = Color(0xFF777777))
-                                    Row(Modifier.weight(1f).fillMaxWidth()) {
-                                        Column(Modifier.width(sideWidth).fillMaxHeight().verticalScroll(rememberScrollState()), verticalArrangement = Arrangement.spacedBy(2.dp)) {
-                                            listOf("Perfil", "Aparência", "Biblioteca", "Imagens", "Controles", "Sistema").forEach { category ->
-                                                val active = settingsCategory == category
-                                                Surface(onClick = { settingsCategory = category }, color = if (active) Color(0xFF252B30) else Color.Transparent, shape = RoundedCornerShape(5.dp), modifier = Modifier.fillMaxWidth()) {
-                                                    Row(verticalAlignment = Alignment.CenterVertically) {
-                                                        Box(Modifier.width(4.dp).height(if (compact) 34.dp else 40.dp).background(if (active) Color(0xFF35BCEB) else Color.Transparent))
-                                                        Text(category, color = if (active) Color(0xFF35BCEB) else Color.White, fontSize = if (compact) 12.sp else 14.sp, fontWeight = if (active) FontWeight.Bold else FontWeight.Normal, maxLines = 1, overflow = TextOverflow.Ellipsis, modifier = Modifier.padding(horizontal = 8.dp, vertical = if (compact) 7.dp else 9.dp))
+                            BoxWithConstraints(Modifier.fillMaxSize().background(Color(0x99000000)), contentAlignment = Alignment.Center) {
+                                val compact = maxHeight < 520.dp || maxWidth < 850.dp
+                                val selectedGame = games.firstOrNull { it.uri.toString() == settingsTargetKey } ?: games.firstOrNull()
+                                Surface(
+                                    modifier = Modifier.fillMaxWidth(0.96f).fillMaxHeight(0.94f),
+                                    color = Color(0xFF202020), shape = RoundedCornerShape(18.dp),
+                                    border = BorderStroke(2.dp, Color(0xFF35BCEB))
+                                ) {
+                                    Column(Modifier.fillMaxSize().padding(if (compact) 10.dp else 18.dp)) {
+                                        Row(Modifier.fillMaxWidth(), verticalAlignment = Alignment.CenterVertically) {
+                                            Icon(Icons.Rounded.ImageSearch, null, tint = Color(0xFF35BCEB), modifier = Modifier.size(if (compact) 24.dp else 30.dp))
+                                            Spacer(Modifier.width(10.dp))
+                                            Column(Modifier.weight(1f)) {
+                                                Text("ÍCONES NINTENDO SWITCH", color = Color(0xFF35BCEB), fontSize = if (compact) 16.sp else 22.sp, fontWeight = FontWeight.ExtraBold)
+                                                Text("Pesquise e aplique a arte oficial do jogo", color = Muted, fontSize = if (compact) 10.sp else 13.sp)
+                                            }
+                                            TextButton(onClick = { settingsOpen = false }) {
+                                                Icon(Icons.Rounded.Close, null, tint = Color(0xFF35BCEB))
+                                                Text("FECHAR", color = Color(0xFF35BCEB), fontWeight = FontWeight.Bold)
+                                            }
+                                        }
+                                        Divider(color = Color(0xFF555555), modifier = Modifier.padding(top = 8.dp, bottom = 12.dp))
+                                        Row(Modifier.fillMaxWidth(), verticalAlignment = Alignment.CenterVertically, horizontalArrangement = Arrangement.spacedBy(10.dp)) {
+                                            Box(Modifier.weight(0.85f)) {
+                                                OutlinedButton(onClick = { settingsTargetMenu = true }, modifier = Modifier.fillMaxWidth(), contentPadding = PaddingValues(horizontal = 10.dp, vertical = 12.dp)) {
+                                                    Icon(Icons.Rounded.SportsEsports, null, tint = Color(0xFF35BCEB))
+                                                    Spacer(Modifier.width(7.dp))
+                                                    Text(selectedGame?.name ?: "Selecione um jogo", color = Color.White, maxLines = 1, overflow = TextOverflow.Ellipsis)
+                                                    Spacer(Modifier.weight(1f))
+                                                    Icon(Icons.Rounded.ArrowDropDown, null, tint = Color.White)
+                                                }
+                                                DropdownMenu(expanded = settingsTargetMenu, onDismissRequest = { settingsTargetMenu = false }) {
+                                                    games.forEach { game ->
+                                                        DropdownMenuItem(text = { Text(game.name, maxLines = 1, overflow = TextOverflow.Ellipsis) }, onClick = { settingsTargetKey = game.uri.toString(); settingsTargetMenu = false })
+                                                    }
+                                                }
+                                            }
+                                            OutlinedTextField(value = settingsQuery, onValueChange = { settingsQuery = it }, modifier = Modifier.weight(1.1f), singleLine = true, label = { Text("Nome do jogo") }, leadingIcon = { Icon(Icons.Rounded.Search, null) })
+                                            Button(
+                                                enabled = settingsQuery.isNotBlank() && !settingsBusy,
+                                                onClick = {
+                                                    settingsBusy = true
+                                                    settingsStatus = "Buscando no catálogo Nintendo Switch…"
+                                                    settingsResults = emptyList()
+                                                    settingsScope.launch {
+                                                        try {
+                                                            settingsResults = withContext(Dispatchers.IO) { searchSwitchCovers(settingsQuery) }
+                                                            settingsStatus = if (settingsResults.isEmpty()) "Nenhum ícone encontrado. Confira o nome e tente novamente." else "${settingsResults.size} ícones encontrados. Selecione um para aplicar."
+                                                        } catch (_: Exception) {
+                                                            settingsStatus = "Não foi possível consultar o catálogo. Verifique a conexão e tente novamente."
+                                                        } finally { settingsBusy = false }
+                                                    }
+                                                },
+                                                colors = ButtonDefaults.buttonColors(containerColor = Color(0xFF35BCEB)),
+                                                contentPadding = PaddingValues(horizontal = 14.dp, vertical = 12.dp)
+                                            ) {
+                                                Icon(Icons.Rounded.Search, null, tint = Color(0xFF101820))
+                                                Spacer(Modifier.width(6.dp))
+                                                Text(if (settingsBusy) "BUSCANDO…" else "BUSCAR", color = Color(0xFF101820), fontWeight = FontWeight.Bold)
+                                            }
+                                        }
+                                        Text(settingsStatus, color = Muted, fontSize = 11.sp, modifier = Modifier.padding(top = 7.dp, bottom = 8.dp))
+                                        Divider(color = Color(0xFF555555))
+                                        if (settingsResults.isEmpty()) {
+                                            Box(Modifier.weight(1f).fillMaxWidth(), contentAlignment = Alignment.Center) {
+                                                Column(horizontalAlignment = Alignment.CenterHorizontally, verticalArrangement = Arrangement.spacedBy(9.dp)) {
+                                                    Icon(Icons.Rounded.Collections, null, tint = Color(0xFF66717A), modifier = Modifier.size(48.dp))
+                                                    Text(if (settingsBusy) "Consultando ícones…" else "Os ícones encontrados aparecerão aqui", color = Muted, fontSize = 13.sp)
+                                                }
+                                            }
+                                        } else {
+                                            LazyVerticalGrid(columns = GridCells.Adaptive(if (compact) 82.dp else 112.dp), modifier = Modifier.weight(1f).fillMaxWidth(), contentPadding = PaddingValues(8.dp), horizontalArrangement = Arrangement.spacedBy(10.dp), verticalArrangement = Arrangement.spacedBy(10.dp)) {
+                                                items(settingsResults.size) { index ->
+                                                    val result = settingsResults[index]
+                                                    val preview = produceState<ImageBitmap?>(null, result.second) {
+                                                        value = withContext(Dispatchers.IO) {
+                                                            try {
+                                                                val c = URL(result.second).openConnection()
+                                                                c.connectTimeout = 12000; c.readTimeout = 18000
+                                                                BitmapFactory.decodeStream(c.getInputStream())?.asImageBitmap()
+                                                            } catch (_: Exception) { null }
+                                                        }
+                                                    }
+                                                    Surface(onClick = {
+                                                        val targetKey = selectedGame?.uri?.toString()
+                                                        if (targetKey.isNullOrBlank()) settingsStatus = "Adicione primeiro um jogo Nintendo Switch à biblioteca."
+                                                        else {
+                                                            settingsBusy = true
+                                                            settingsScope.launch {
+                                                                try {
+                                                                    withContext(Dispatchers.IO) {
+                                                                        val c = URL(result.second).openConnection()
+                                                                        c.connectTimeout = 15000; c.readTimeout = 25000
+                                                                        val bitmap = BitmapFactory.decodeStream(c.getInputStream()) ?: error("Imagem inválida")
+                                                                        val file = File(filesDir, "switch-icon-${targetKey.hashCode()}.png")
+                                                                        FileOutputStream(file).use { bitmap.compress(android.graphics.Bitmap.CompressFormat.PNG, 100, it) }
+                                                                        prefs.edit().putString("cover_$targetKey", Uri.fromFile(file).toString()).apply()
+                                                                    }
+                                                                    refreshToken++
+                                                                    settingsStatus = "Ícone aplicado a ${selectedGame.name}."
+                                                                    settingsOpen = false
+                                                                    android.widget.Toast.makeText(this@MainActivity, "Ícone aplicado!", android.widget.Toast.LENGTH_SHORT).show()
+                                                                } catch (_: Exception) { settingsStatus = "Não foi possível baixar o ícone." }
+                                                                finally { settingsBusy = false }
+                                                            }
+                                                        }
+                                                    }, color = Color(0xFF292929), shape = RoundedCornerShape(9.dp), border = BorderStroke(1.dp, Color(0xFF454545))) {
+                                                        Column(Modifier.padding(6.dp), verticalArrangement = Arrangement.spacedBy(5.dp)) {
+                                                            Box(Modifier.fillMaxWidth().aspectRatio(1f).clip(RoundedCornerShape(6.dp)).background(Color(0xFF171717)), contentAlignment = Alignment.Center) {
+                                                                if (preview.value != null) androidx.compose.foundation.Image(bitmap = preview.value!!, contentDescription = result.first, contentScale = ContentScale.Fit, modifier = Modifier.fillMaxSize())
+                                                                else Icon(Icons.Rounded.SportsEsports, null, tint = Muted, modifier = Modifier.size(28.dp))
+                                                            }
+                                                            Text(result.first.substringBeforeLast("."), color = Color.White, fontSize = 9.sp, maxLines = 2, overflow = TextOverflow.Ellipsis)
+                                                            Row(verticalAlignment = Alignment.CenterVertically, horizontalArrangement = Arrangement.Center) {
+                                                                Icon(Icons.Rounded.CheckCircle, null, tint = Color(0xFF35BCEB), modifier = Modifier.size(13.dp))
+                                                                Spacer(Modifier.width(4.dp))
+                                                                Text("APLICAR", color = Color(0xFF35BCEB), fontSize = 9.sp, fontWeight = FontWeight.Bold)
+                                                            }
+                                                        }
                                                     }
                                                 }
                                             }
                                         }
-                                        Spacer(Modifier.width(if (compact) 8.dp else 14.dp))
-                                        Divider(Modifier.fillMaxHeight().width(1.dp), color = Color(0xFF484848))
-                                        Column(Modifier.weight(1f).fillMaxHeight().verticalScroll(rememberScrollState()).padding(start = if (compact) 10.dp else 18.dp, end = 4.dp), verticalArrangement = Arrangement.spacedBy(10.dp)) {
-                                            Text(settingsCategory.uppercase(), color = Color.White, fontSize = if (compact) 17.sp else 21.sp, fontWeight = FontWeight.Bold)
-                                            when (settingsCategory) {
-                                                "Perfil" -> {
-                                                    Text("Personalize sua identidade no QPlay.", color = Muted, fontSize = if (compact) 12.sp else 15.sp)
-                                                    OutlinedTextField(value = displayName, onValueChange = { displayName = it; prefs.edit().putString("display_name", it).apply() }, label = { Text("Nome do perfil") }, singleLine = true, modifier = Modifier.fillMaxWidth())
-                                                    Row(verticalAlignment = Alignment.CenterVertically, horizontalArrangement = Arrangement.spacedBy(12.dp)) {
-                                                        Surface(
-                                                            onClick = { avatarPicker.launch(arrayOf("image/*")) },
-                                                            color = Color(0xFF171923),
-                                                            shape = RoundedCornerShape(50),
-                                                            border = BorderStroke(2.dp, Color(0xFF35BCEB)),
-                                                            modifier = Modifier.size(64.dp)
-                                                        ) {
-                                                            Box(contentAlignment = Alignment.Center) {
-                                                                if (avatarBitmap.value != null) {
-                                                                    androidx.compose.foundation.Image(bitmap = avatarBitmap.value!!, contentDescription = "Avatar escolhido", contentScale = ContentScale.Crop, modifier = Modifier.fillMaxSize().clip(RoundedCornerShape(50)))
-                                                                } else {
-                                                                    Icon(Icons.Rounded.Person, null, tint = Color(0xFF35BCEB), modifier = Modifier.size(34.dp))
-                                                                }
-                                                            }
-                                                        }
-                                                        Column(Modifier.weight(1f), verticalArrangement = Arrangement.spacedBy(4.dp)) {
-                                                            Text("FOTO DE PERFIL", color = Color.White, fontWeight = FontWeight.Bold, fontSize = 11.sp)
-                                                            Text("Toque para escolher uma imagem da galeria. Ela substituirá o ícone do QPlay.", color = Muted, fontSize = 11.sp)
-                                                            Row(horizontalArrangement = Arrangement.spacedBy(8.dp)) {
-                                                                TextButton(onClick = { avatarPicker.launch(arrayOf("image/*")) }) { Text("ESCOLHER FOTO", color = Color(0xFF35BCEB)) }
-                                                                if (avatarUri != null) TextButton(onClick = { avatarUri = null; prefs.edit().remove("profile_avatar_uri").apply() }) { Text("REMOVER", color = Color(0xFFE45B68)) }
-                                                            }
-                                                        }
-                                                    }
-                                                }
-                                                "Aparência" -> {
-                                                    Text("Escolha uma cor de destaque para a interface.", color = Muted)
-                                                    Row(horizontalArrangement = Arrangement.spacedBy(8.dp)) {
-                                                        listOf(Color(0xFF35BCEB), Color(0xFF8B72E8), Color(0xFF56C58A), Color(0xFFE6A64A), Color(0xFFE45B68)).forEach { c ->
-                                                            Surface(onClick = { prefs.edit().putLong("accent_color", c.value.toLong()).apply() }, color = c, shape = RoundedCornerShape(50), modifier = Modifier.size(if (compact) 30.dp else 38.dp), border = BorderStroke(2.dp, Color.White)) {}
-                                                        }
-                                                    }
-                                                }
-                                                "Biblioteca" -> {
-                                                    Text("Gerencie as fontes da sua biblioteca.", color = Muted)
-                                                    Button(onClick = { settingsOpen = false; folderPicker.launch(folderUri) }) { Icon(Icons.Rounded.FolderOpen, null); Spacer(Modifier.width(8.dp)); Text("Selecionar pasta de jogos") }
-                                                    Button(onClick = { settingsOpen = false; tab = "Aplicativos" }) { Icon(Icons.Rounded.Apps, null); Spacer(Modifier.width(8.dp)); Text("Escolher aplicativos") }
-                                                    Button(onClick = { libraryFilter = "Todos"; settingsOpen = false }) { Text("Mostrar todos os jogos") }
-                                                }
-                                                "Imagens" -> {
-                                                    Text("Nintendo Switch usa ícones oficiais da eShop. Jogos nativos usam os ícones dos próprios aplicativos.", color = Muted)
-                                                    Text("Use o editor de cada jogo para pesquisar e aplicar imagens.", color = Color.White, fontWeight = FontWeight.SemiBold)
-                                                }
-                                                "Controles" -> Text("Mapeamento de botões, navegação e atalhos serão configurados aqui.", color = Muted)
-                                                else -> Text("Sons, animações e comportamento de inicialização do QPlay.", color = Muted)
-                                            }
+                                        Divider(color = Color(0xFF555555), modifier = Modifier.padding(top = 8.dp))
+                                        Row(Modifier.fillMaxWidth().padding(top = 6.dp), verticalAlignment = Alignment.CenterVertically) {
+                                            Icon(Icons.Rounded.SportsEsports, null, tint = Color(0xFF35BCEB), modifier = Modifier.size(17.dp))
+                                            Spacer(Modifier.width(7.dp))
+                                            Text("CATÁLOGO DE ÍCONES NINTENDO SWITCH", color = Muted, fontSize = 9.sp)
+                                            Spacer(Modifier.weight(1f))
+                                            TextButton(onClick = { settingsOpen = false }) { Text("VOLTAR", color = Color(0xFF35BCEB), fontWeight = FontWeight.Bold) }
                                         }
-                                    }
-                                    Divider(color = Color(0xFF777777))
-                                    Row(Modifier.fillMaxWidth().heightIn(min = 30.dp).padding(top = 4.dp), horizontalArrangement = Arrangement.End, verticalAlignment = Alignment.CenterVertically) {
-                                        Text("B  VOLTAR", color = Color.White, fontSize = 10.sp, maxLines = 1)
-                                        Spacer(Modifier.width(18.dp))
-                                        Text("A  CONFIRMAR", color = Color.White, fontSize = 10.sp, maxLines = 1)
                                     }
                                 }
                             }
@@ -424,7 +493,7 @@ class MainActivity : ComponentActivity() {
                         ) {
                             rowItems(visibleGames, key = { it.uri.toString() }) { game ->
                                 val key = game.uri.toString()
-                                SwitchGameCard(key, game.name, prefs, tileSize, key in favoriteKeys, groupMap[key].orEmpty(), visibleGames.firstOrNull()?.uri == game.uri,
+                                SwitchGameCard(key, game.name, prefs, tileSize, refreshToken, false, key in favoriteKeys, groupMap[key].orEmpty(), visibleGames.firstOrNull()?.uri == game.uri,
                                     { launchNup(game) }, { focusedGameName = it }) { fav, group ->
                                     favoriteKeys = if (fav) favoriteKeys + key else favoriteKeys - key
                                     groupMap = groupMap + (key to group)
@@ -433,7 +502,7 @@ class MainActivity : ComponentActivity() {
                             }
                             rowItems(visibleApps, key = { "app:" + it.packageName }) { app ->
                                 val key = app.packageName
-                                SwitchGameCard(key, app.name, prefs, tileSize, key in favoriteKeys, groupMap[key].orEmpty(), visibleApps.firstOrNull()?.packageName == app.packageName,
+                                SwitchGameCard(key, app.name, prefs, tileSize, refreshToken, true, key in favoriteKeys, groupMap[key].orEmpty(), visibleApps.firstOrNull()?.packageName == app.packageName,
                                     { launchAndroidApp(app.packageName) }, { focusedGameName = it }) { fav, group ->
                                     favoriteKeys = if (fav) favoriteKeys + key else favoriteKeys - key
                                     groupMap = groupMap + (key to group)
@@ -479,257 +548,47 @@ class MainActivity : ComponentActivity() {
 
     @OptIn(ExperimentalFoundationApi::class)
     @Composable
-    private fun SwitchGameCard(key: String, originalName: String, prefs: android.content.SharedPreferences, tileSize: androidx.compose.ui.unit.Dp, isFavorite: Boolean, initialGroup: String, initiallySelected: Boolean, onClick: () -> Unit, onFocusName: (String) -> Unit, onMetadataChanged: (Boolean, String) -> Unit) {
+    private fun SwitchGameCard(key: String, originalName: String, prefs: android.content.SharedPreferences, tileSize: androidx.compose.ui.unit.Dp, coverRefresh: Int, isNativeApp: Boolean, isFavorite: Boolean, initialGroup: String, initiallySelected: Boolean, onClick: () -> Unit, onFocusName: (String) -> Unit, onMetadataChanged: (Boolean, String) -> Unit) {
         var focused by remember(key) { mutableStateOf(initiallySelected) }
         var favorite by remember(key) { mutableStateOf(isFavorite) }
         var draftGroup by remember(key) { mutableStateOf(initialGroup) }
         var groupName by remember(key) { mutableStateOf(initialGroup) }
-        var editOpen by remember { mutableStateOf(false) }
-        var scraperOpen by remember { mutableStateOf(false) }
-        var scraperQuery by remember { mutableStateOf(originalName) }
-        var scraperBusy by remember { mutableStateOf(false) }
-        var scraperStatus by remember { mutableStateOf("") }
-        var scraperResults by remember { mutableStateOf<List<Pair<String, String>>>(emptyList()) }
-        val scraperScope = rememberCoroutineScope()
         var title by remember(key) { mutableStateOf(prefs.getString("edit_name_" + key, originalName) ?: originalName) }
-        var coverUri by remember(key) { mutableStateOf(prefs.getString("cover_" + key, null)?.let(Uri::parse)) }
-        var draftTitle by remember { mutableStateOf(title) }
-        val picker = rememberLauncherForActivityResult(ActivityResultContracts.OpenDocument()) { uri ->
-            if (uri != null) {
-                try { contentResolver.takePersistableUriPermission(uri, Intent.FLAG_GRANT_READ_URI_PERMISSION); coverUri = uri; prefs.edit().putString("cover_" + key, uri.toString()).apply() }
-                catch (_: Exception) { android.widget.Toast.makeText(this, "Não foi possível guardar esta imagem.", android.widget.Toast.LENGTH_SHORT).show() }
-            }
-        }
-        val cover = produceState<ImageBitmap?>(null, coverUri) {
+        var coverUri by remember(key, coverRefresh) { mutableStateOf(prefs.getString("cover_" + key, null)?.let(Uri::parse)) }
+
+        val cover = produceState<ImageBitmap?>(null, coverUri, coverRefresh) {
             value = withContext(Dispatchers.IO) { try { coverUri?.let { uri -> contentResolver.openInputStream(uri)?.use { stream -> BitmapFactory.decodeStream(stream) }?.asImageBitmap() } } catch (_: Exception) { null } }
         }
+        val nativeIcon = produceState<ImageBitmap?>(null, key, isNativeApp) {
+            value = if (!isNativeApp) null else withContext(Dispatchers.IO) {
+                try {
+                    val drawable = packageManager.getApplicationIcon(key)
+                    val w = (drawable.intrinsicWidth.takeIf { it > 0 } ?: 192).coerceAtMost(512)
+                    val h = (drawable.intrinsicHeight.takeIf { it > 0 } ?: 192).coerceAtMost(512)
+                    val bitmap = android.graphics.Bitmap.createBitmap(w, h, android.graphics.Bitmap.Config.ARGB_8888)
+                    val canvas = android.graphics.Canvas(bitmap)
+                    drawable.setBounds(0, 0, canvas.width, canvas.height)
+                    drawable.draw(canvas)
+                    bitmap.asImageBitmap()
+                } catch (_: Exception) { null }
+            }
+        }
         val tileScale by animateFloatAsState(if (focused) 1.07f else 1f, label = "tileScale")
-        Surface(color = if (focused) Color(0xFF343434) else Color(0xFF292929), shape = RoundedCornerShape(3.dp), border = BorderStroke(if (focused) 4.dp else 2.dp, if (focused) Color(0xFF35BCEB) else Color(0xFF3A3A3A)), modifier = Modifier.width(tileSize).height(tileSize).graphicsLayer { scaleX = tileScale; scaleY = tileScale }.onFocusChanged { focused = it.isFocused; if (it.isFocused) { onFocusName(title); playSoundEffect(android.view.SoundEffectConstants.NAVIGATION_DOWN) } }.combinedClickable(onClick = { playSoundEffect(android.view.SoundEffectConstants.CLICK); onClick() }, onLongClick = { draftTitle = title; draftGroup = groupName; editOpen = true })) {
+        Surface(color = if (focused) Color(0xFF343434) else Color(0xFF292929), shape = RoundedCornerShape(3.dp), border = BorderStroke(if (focused) 4.dp else 2.dp, if (focused) Color(0xFF35BCEB) else Color(0xFF3A3A3A)), modifier = Modifier.width(tileSize).height(tileSize).graphicsLayer { scaleX = tileScale; scaleY = tileScale }.onFocusChanged { focused = it.isFocused; if (it.isFocused) { onFocusName(title); playSoundEffect(android.view.SoundEffectConstants.NAVIGATION_DOWN) } }.combinedClickable(onClick = { playSoundEffect(android.view.SoundEffectConstants.CLICK); onClick() }, onLongClick = { playSoundEffect(android.view.SoundEffectConstants.CLICK) })) {
             Box(Modifier.fillMaxSize()) {
-                if (cover.value != null) androidx.compose.foundation.Image(bitmap = cover.value!!, contentDescription = title, contentScale = ContentScale.Crop, modifier = Modifier.fillMaxSize())
-                else Box(Modifier.fillMaxSize().background(Color(0xFF303030)), contentAlignment = Alignment.Center) { Icon(Icons.Rounded.SportsEsports, null, tint = Color(0xFF777777), modifier = Modifier.size(58.dp)) }
+                val displayedIcon = cover.value ?: nativeIcon.value
+                if (displayedIcon != null) {
+                    Box(Modifier.fillMaxSize().background(Color(0xFF303030)), contentAlignment = Alignment.Center) {
+                        androidx.compose.foundation.Image(bitmap = displayedIcon, contentDescription = title, contentScale = if (isNativeApp && cover.value == null) ContentScale.Fit else ContentScale.Crop, modifier = Modifier.fillMaxSize().padding(if (isNativeApp && cover.value == null) 18.dp else 0.dp))
+                    }
+                } else Box(Modifier.fillMaxSize().background(Color(0xFF303030)), contentAlignment = Alignment.Center) { Icon(Icons.Rounded.SportsEsports, null, tint = Color(0xFF777777), modifier = Modifier.size(58.dp)) }
                 if (isFavorite) Icon(Icons.Rounded.Favorite, "Favorito", tint = Color(0xFFE65B68), modifier = Modifier.align(Alignment.TopEnd).padding(8.dp))
             }
         }
 
-        if (scraperOpen) Dialog(
-            onDismissRequest = { scraperOpen = false },
-            properties = androidx.compose.ui.window.DialogProperties(usePlatformDefaultWidth = false, decorFitsSystemWindows = false)
-        ) {
-            BoxWithConstraints(Modifier.fillMaxSize().background(Color(0x99000000)), contentAlignment = Alignment.Center) {
-                val compact = maxWidth < 900.dp || maxHeight < 600.dp
-                Surface(
-                    color = Color(0xFF202020),
-                    shape = RoundedCornerShape(18.dp),
-                    border = BorderStroke(2.dp, Color(0xFF35BCEB)),
-                    modifier = Modifier.fillMaxWidth(0.82f).fillMaxHeight(0.78f)
-                ) {
-                    Column(Modifier.fillMaxSize().padding(if (compact) 10.dp else 16.dp)) {
-                        Row(Modifier.fillMaxWidth(), verticalAlignment = Alignment.CenterVertically) {
-                            Icon(Icons.Rounded.ImageSearch, null, tint = Color(0xFF35BCEB), modifier = Modifier.size(if (compact) 22.dp else 28.dp))
-                            Spacer(Modifier.width(10.dp))
-                            Column(Modifier.weight(1f)) {
-                                Text("ÍCONES NINTENDO SWITCH", color = Color(0xFF35BCEB), fontSize = if (compact) 16.sp else 21.sp, fontWeight = FontWeight.ExtraBold)
-                                Text("Pesquise e aplique o ícone oficial do jogo", color = Muted, fontSize = if (compact) 10.sp else 12.sp)
-                            }
-                            TextButton(onClick = { scraperOpen = false }) { Text("FECHAR  ✕", color = Color(0xFF35BCEB), fontWeight = FontWeight.Bold) }
-                        }
-                        Divider(color = Color(0xFF555555), modifier = Modifier.padding(top = 8.dp, bottom = 12.dp))
-                        Row(Modifier.weight(1f).fillMaxWidth(), horizontalArrangement = Arrangement.spacedBy(14.dp)) {
-                            Column(Modifier.weight(1f).fillMaxHeight().fillMaxWidth(if (compact) 0.38f else 0.31f).verticalScroll(rememberScrollState()).imePadding(), verticalArrangement = Arrangement.spacedBy(7.dp)) {
-                                Text("JOGO", color = Color.White, fontSize = 11.sp, fontWeight = FontWeight.Bold, letterSpacing = 1.sp)
-                                OutlinedTextField(
-                                    value = scraperQuery,
-                                    onValueChange = { scraperQuery = it },
-                                    label = { Text("Nome do jogo") },
-                                    singleLine = true,
-                                    maxLines = 1,
-                                    modifier = Modifier.fillMaxWidth()
-                                )
-                                Text("PLATAFORMA: NINTENDO SWITCH • eSHOP", color = Color.White, fontSize = 11.sp, fontWeight = FontWeight.Bold, letterSpacing = 1.sp)
-                                Button(
-                                    enabled = scraperQuery.isNotBlank() && !scraperBusy,
-                                    onClick = {
-                                        scraperBusy = true
-                                        scraperStatus = "Consultando catálogo público…"
-                                        scraperResults = emptyList()
-                                        scraperScope.launch {
-                                            try {
-                                                val matches = withContext(Dispatchers.IO) {
-                                                    searchSwitchCovers(scraperQuery)
-                                                }
-                                                scraperResults = matches
-                                                scraperStatus = if (matches.isEmpty()) "Nenhuma capa correspondente neste console. Confira o nome e a plataforma selecionada." else "${matches.size} capas encontradas."
-                                            } catch (e: Exception) {
-                                                scraperStatus = e.message?.takeIf { it.contains("HTTP") }
-                                                    ?.let { "Falha no catálogo: $it" }
-                                                    ?: "Falha ao buscar capas. Verifique a internet e tente novamente."
-                                            }
-                                            scraperBusy = false
-                                        }
-                                    },
-                                    modifier = Modifier.fillMaxWidth(),
-                                    colors = ButtonDefaults.buttonColors(containerColor = Color(0xFF35BCEB))
-                                ) { Text(if (scraperBusy) "PESQUISANDO…" else "BUSCAR ÍCONES", color = Color(0xFF101820), fontWeight = FontWeight.Bold) }
-                                Text(scraperStatus, color = if (scraperStatus.startsWith("Não") || scraperStatus.startsWith("Nenhuma")) Color(0xFFFFC078) else Muted, fontSize = 10.sp)
-                            }
-                            Divider(Modifier.fillMaxHeight().width(1.dp), color = Color(0xFF484848))
-                            Column(Modifier.weight(1f).fillMaxHeight()) {
-                                Row(Modifier.fillMaxWidth(), verticalAlignment = Alignment.CenterVertically) {
-                                    Text("RESULTADOS", color = Color.White, fontSize = 12.sp, fontWeight = FontWeight.Bold, letterSpacing = 1.sp)
-                                    Spacer(Modifier.weight(1f))
-                                    Text("${scraperResults.size} imagens", color = Muted, fontSize = 10.sp)
-                                }
-                                Spacer(Modifier.height(8.dp))
-                                if (scraperResults.isEmpty()) {
-                                    Box(Modifier.fillMaxSize(), contentAlignment = Alignment.Center) {
-                                        Column(horizontalAlignment = Alignment.CenterHorizontally, verticalArrangement = Arrangement.spacedBy(8.dp)) {
-                                            Icon(Icons.Rounded.Collections, null, tint = Color(0xFF66717A), modifier = Modifier.size(42.dp))
-                                            Text(if (scraperBusy) "Buscando imagens…" else "Os ícones encontrados aparecerão aqui", color = Muted, fontSize = 12.sp)
-                                        }
-                                    }
-                                } else {
-                                    LazyVerticalGrid(
-                                        columns = GridCells.Adaptive(if (compact) 88.dp else 112.dp),
-                                        modifier = Modifier.fillMaxSize(),
-                                        contentPadding = PaddingValues(4.dp),
-                                        horizontalArrangement = Arrangement.spacedBy(10.dp),
-                                        verticalArrangement = Arrangement.spacedBy(10.dp)
-                                    ) {
-                                        items(scraperResults.size) { index ->
-                                            val result = scraperResults[index]
-                                            val preview = produceState<ImageBitmap?>(null, result.second) {
-                                                value = withContext(Dispatchers.IO) {
-                                                    try {
-                                                        val c = URL(result.second).openConnection()
-                                                        c.connectTimeout = 12000; c.readTimeout = 18000
-                                                        BitmapFactory.decodeStream(c.getInputStream())?.asImageBitmap()
-                                                    } catch (_: Exception) { null }
-                                                }
-                                            }
-                                            Surface(
-                                                onClick = {
-                                                    scraperBusy = true
-                                                    scraperStatus = "Baixando e aplicando capa…"
-                                                    scraperScope.launch {
-                                                        try {
-                                                            val localUri = withContext(Dispatchers.IO) {
-                                                                val c = URL(result.second).openConnection()
-                                                                c.connectTimeout = 15000; c.readTimeout = 25000
-                                                                val bitmap = BitmapFactory.decodeStream(c.getInputStream()) ?: throw IllegalStateException("Imagem inválida")
-                                                                val file = File(filesDir, "qplay-cover-" + key.hashCode() + ".png")
-                                                                FileOutputStream(file).use { bitmap.compress(android.graphics.Bitmap.CompressFormat.PNG, 100, it) }
-                                                                Uri.fromFile(file)
-                                                            }
-                                                            coverUri = localUri
-                                                            prefs.edit().putString("cover_" + key, localUri.toString()).apply()
-                                                            scraperOpen = false
-                                                            android.widget.Toast.makeText(this@MainActivity, "Ícone do Switch aplicado ao jogo!", android.widget.Toast.LENGTH_SHORT).show()
-                                                        } catch (_: Exception) { scraperStatus = "Não foi possível baixar esta imagem." }
-                                                        scraperBusy = false
-                                                    }
-                                                },
-                                                color = Color(0xFF292929),
-                                                shape = RoundedCornerShape(9.dp),
-                                                border = BorderStroke(1.dp, Color(0xFF454545))
-                                            ) {
-                                                Column(Modifier.padding(6.dp), verticalArrangement = Arrangement.spacedBy(5.dp)) {
-                                                    Box(Modifier.fillMaxWidth().aspectRatio(1f).clip(RoundedCornerShape(5.dp)).background(Color(0xFF171717)), contentAlignment = Alignment.Center) {
-                                                        if (preview.value != null) androidx.compose.foundation.Image(bitmap = preview.value!!, contentDescription = result.first, contentScale = ContentScale.Fit, modifier = Modifier.fillMaxSize())
-                                                        else Icon(Icons.Rounded.SportsEsports, null, tint = Muted, modifier = Modifier.size(28.dp))
-                                                    }
-                                                    Text(result.first.substringBeforeLast("."), color = Color.White, fontSize = 9.sp, maxLines = 2, overflow = TextOverflow.Ellipsis)
-                                                    Text("APLICAR ÍCONE", color = Color(0xFF35BCEB), fontSize = 9.sp, fontWeight = FontWeight.Bold)
-                                                }
-                                            }
-                                        }
-                                    }
-                                }
-                            }
-                        }
-                        Divider(color = Color(0xFF555555), modifier = Modifier.padding(top = 10.dp))
-                        Row(Modifier.fillMaxWidth().padding(top = 7.dp), verticalAlignment = Alignment.CenterVertically) {
-                            Text("FONTE: CATÁLOGO DE ÍCONES NINTENDO SWITCH", color = Muted, fontSize = 9.sp)
-                            Spacer(Modifier.weight(1f))
-                            TextButton(onClick = { scraperOpen = false }) { Text("VOLTAR", color = Color(0xFF35BCEB), fontWeight = FontWeight.Bold) }
-                        }
-                    }
-                }
-            }
-        }
 
-        if (editOpen) Dialog(
-            onDismissRequest = { editOpen = false },
-            properties = androidx.compose.ui.window.DialogProperties(usePlatformDefaultWidth = false, decorFitsSystemWindows = false)
-        ) {
-            BoxWithConstraints(Modifier.fillMaxSize().background(Color(0x99000000)), contentAlignment = Alignment.Center) {
-                val compactEdit = maxWidth < 1100.dp || maxHeight < 700.dp
-                Surface(
-                    color = Color(0xFF202020),
-                    shape = RoundedCornerShape(18.dp),
-                    border = BorderStroke(2.dp, Color(0xFF35BCEB)),
-                    modifier = Modifier.fillMaxWidth(0.68f).fillMaxHeight(0.68f)
-                ) {
-                    Column(Modifier.fillMaxSize().padding(if (compactEdit) 8.dp else 14.dp)) {
-                        Row(Modifier.fillMaxWidth(), verticalAlignment = Alignment.CenterVertically) {
-                            Icon(Icons.Rounded.Tune, null, tint = Color(0xFF35BCEB), modifier = Modifier.size(25.dp))
-                            Spacer(Modifier.width(10.dp))
-                            Column(Modifier.weight(1f)) {
-                                Text("PERSONALIZAR JOGO", color = Color(0xFF35BCEB), fontSize = if (compactEdit) 16.sp else 21.sp, fontWeight = FontWeight.ExtraBold)
-                                Text(title, color = Muted, fontSize = 11.sp, maxLines = 1, overflow = TextOverflow.Ellipsis)
-                            }
-                            TextButton(onClick = { editOpen = false }) { Text("FECHAR  ✕", color = Color(0xFF35BCEB), fontWeight = FontWeight.Bold) }
-                        }
-                        Divider(color = Color(0xFF555555), modifier = Modifier.padding(top = 8.dp, bottom = 12.dp))
-                        Row(Modifier.weight(1f).fillMaxWidth(), horizontalArrangement = Arrangement.spacedBy(18.dp)) {
-                            Column(Modifier.fillMaxHeight().fillMaxWidth(if (compactEdit) 0.34f else 0.30f), verticalArrangement = Arrangement.spacedBy(8.dp)) {
-                                Text("CAPA DO JOGO", color = Color.White, fontSize = 11.sp, fontWeight = FontWeight.Bold, letterSpacing = 1.sp)
-                                Surface(color = Color(0xFF151515), shape = RoundedCornerShape(10.dp), border = BorderStroke(1.dp, Color(0xFF454545)), modifier = Modifier.weight(1f).fillMaxWidth()) {
-                                    Box(contentAlignment = Alignment.Center) {
-                                        if (cover.value != null) androidx.compose.foundation.Image(bitmap = cover.value!!, contentDescription = "Capa atual", contentScale = ContentScale.Fit, modifier = Modifier.fillMaxSize().padding(6.dp))
-                                        else Column(horizontalAlignment = Alignment.CenterHorizontally, verticalArrangement = Arrangement.spacedBy(8.dp)) {
-                                            Icon(Icons.Rounded.SportsEsports, null, tint = Muted, modifier = Modifier.size(42.dp))
-                                            Text("SEM CAPA", color = Muted, fontSize = 10.sp, fontWeight = FontWeight.Bold)
-                                        }
-                                    }
-                                }
-                                OutlinedButton(onClick = { scraperQuery = title; scraperOpen = true; scraperStatus = ""; scraperResults = emptyList() }, modifier = Modifier.fillMaxWidth(), border = BorderStroke(1.dp, Color(0xFF35BCEB)), contentPadding = PaddingValues(horizontal = 8.dp, vertical = 6.dp)) {
-                                    Icon(Icons.Rounded.Search, null, tint = Color(0xFF35BCEB), modifier = Modifier.size(16.dp))
-                                    Spacer(Modifier.width(5.dp))
-                                    Text("BUSCAR CAPA", color = Color(0xFF35BCEB), fontSize = 10.sp, fontWeight = FontWeight.Bold)
-                                }
-                                OutlinedButton(onClick = { picker.launch(arrayOf("image/*")) }, modifier = Modifier.fillMaxWidth(), border = BorderStroke(1.dp, Color(0xFF555555)), contentPadding = PaddingValues(horizontal = 8.dp, vertical = 6.dp)) {
-                                    Icon(Icons.Rounded.Image, null, tint = Color.White, modifier = Modifier.size(16.dp))
-                                    Spacer(Modifier.width(5.dp))
-                                    Text("GALERIA", color = Color.White, fontSize = 10.sp, fontWeight = FontWeight.Bold)
-                                }
-                            }
-                            Divider(Modifier.fillMaxHeight().width(1.dp), color = Color(0xFF484848))
-                            Column(Modifier.weight(1f).fillMaxHeight().verticalScroll(rememberScrollState()), verticalArrangement = Arrangement.spacedBy(10.dp)) {
-                                Text("INFORMAÇÕES", color = Color.White, fontSize = 11.sp, fontWeight = FontWeight.Bold, letterSpacing = 1.sp)
-                                OutlinedTextField(value = draftTitle, onValueChange = { draftTitle = it }, label = { Text("Nome do jogo") }, singleLine = true, modifier = Modifier.fillMaxWidth(), colors = OutlinedTextFieldDefaults.colors(focusedBorderColor = Color(0xFF35BCEB), focusedLabelColor = Color(0xFF35BCEB), cursorColor = Color(0xFF35BCEB)))
-                                OutlinedTextField(value = draftGroup, onValueChange = { draftGroup = it }, label = { Text("Grupo / coleção") }, singleLine = true, modifier = Modifier.fillMaxWidth(), colors = OutlinedTextFieldDefaults.colors(focusedBorderColor = Color(0xFF35BCEB), focusedLabelColor = Color(0xFF35BCEB), cursorColor = Color(0xFF35BCEB)))
-                                Surface(color = Color(0xFF2D2D2D), shape = RoundedCornerShape(10.dp), modifier = Modifier.fillMaxWidth().clickable { favorite = !favorite }) {
-                                    Row(Modifier.padding(horizontal = 12.dp, vertical = 7.dp), verticalAlignment = Alignment.CenterVertically) {
-                                        Icon(Icons.Rounded.Favorite, null, tint = if (favorite) Color(0xFFE65B68) else Muted)
-                                        Spacer(Modifier.width(9.dp))
-                                        Text("Adicionar aos favoritos", color = Color.White, modifier = Modifier.weight(1f), fontSize = 12.sp)
-                                        Checkbox(checked = favorite, onCheckedChange = { favorite = it }, colors = CheckboxDefaults.colors(checkedColor = Color(0xFF35BCEB)))
-                                    }
-                                }
-                                Text("As alterações serão salvas na biblioteca deste dispositivo.", color = Muted, fontSize = 10.sp)
-                            }
-                        }
-                        Divider(color = Color(0xFF555555), modifier = Modifier.padding(top = 10.dp))
-                        Row(Modifier.fillMaxWidth().padding(top = 7.dp), horizontalArrangement = Arrangement.End, verticalAlignment = Alignment.CenterVertically) {
-                            OutlinedButton(onClick = { editOpen = false }, border = BorderStroke(1.dp, Color(0xFF555555))) { Text("CANCELAR", color = Color.White) }
-                            Spacer(Modifier.width(10.dp))
-                            Button(onClick = { title = draftTitle.ifBlank { originalName }; prefs.edit().putString("edit_name_" + key, title).apply(); groupName = draftGroup.trim(); onMetadataChanged(favorite, groupName); editOpen = false; onFocusName(title) }, colors = ButtonDefaults.buttonColors(containerColor = Color(0xFF35BCEB))) { Text("SALVAR ALTERAÇÕES", color = Color(0xFF101820), fontWeight = FontWeight.ExtraBold) }
-                        }
-                    }
-                }
-            }
-        }
+
+
     }
     @Composable
     private fun SelectableAppTile(app: InstalledGame, selected: Boolean, onToggle: () -> Unit, onLaunch: () -> Unit) {
