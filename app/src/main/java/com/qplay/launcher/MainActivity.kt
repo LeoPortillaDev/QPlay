@@ -150,49 +150,51 @@ class MainActivity : ComponentActivity() {
 
         BackHandler(enabled = settingsOpen || tab != "Biblioteca") { if (settingsOpen) settingsOpen = false else tab = "Biblioteca" }
 
-        Column(Modifier.fillMaxSize().background(Bg).padding(horizontal = 42.dp, vertical = 24.dp)) {
-            Row(verticalAlignment = Alignment.CenterVertically) {
-                Row(verticalAlignment = Alignment.CenterVertically, horizontalArrangement = Arrangement.spacedBy(10.dp)) {
-                    androidx.compose.foundation.Image(painterResource(com.qplay.launcher.R.drawable.qplay_logo), contentDescription = "QPlay", modifier = Modifier.size(48.dp))
-                    Text("QPLAY", color = Color.White, fontSize = 23.sp, fontWeight = FontWeight.ExtraBold, letterSpacing = 2.sp)
-                }
-                Spacer(Modifier.width(16.dp))
-                Text("GAME LIBRARY", color = Muted, fontSize = 10.sp, fontWeight = FontWeight.Bold, letterSpacing = 2.sp)
-                Spacer(Modifier.weight(1f))
-                Column(horizontalAlignment = Alignment.End) {
-                    Text(if (peanuts != null) "PEANUTS CONECTADO" else "PEANUTS NÃO DETECTADO", color = if (peanuts != null) Color(0xFF8FC6A0) else Color(0xFFE2A09A), fontSize = 10.sp, fontWeight = FontWeight.Bold, letterSpacing = 1.sp)
-                    Text("${games.size} JOGOS NA BIBLIOTECA", color = Muted, fontSize = 9.sp)
-                }
-                Box {
-                    IconButton(onClick = { settingsOpen = true }) { Icon(Icons.Rounded.Menu, "Menu", tint = Color.White, modifier = Modifier.size(32.dp)) }
-                    DropdownMenu(expanded = settingsOpen, onDismissRequest = { settingsOpen = false }) {
-                        DropdownMenuItem(text = { Text("Selecionar pasta dos jogos") }, leadingIcon = { Icon(Icons.Rounded.FolderOpen, null) }, onClick = { settingsOpen = false; folderPicker.launch(folderUri) })
-                        DropdownMenuItem(text = { Text("Escolher aplicativos") }, leadingIcon = { Icon(Icons.Rounded.Apps, null) }, onClick = { settingsOpen = false; tab = "Aplicativos" })
-                        DropdownMenuItem(text = { Text("Atualizar biblioteca") }, leadingIcon = { Icon(Icons.Rounded.Refresh, null) }, onClick = { settingsOpen = false; refreshToken++; apps = installedApps() })
+        BoxWithConstraints(Modifier.fillMaxSize().background(Bg)) {
+            val tileSize = (maxWidth * 0.205f).coerceIn(148.dp, 226.dp)
+            val libraryApps = apps.filter { it.packageName in selectedApps }
+            val totalItems = games.size + libraryApps.size
+
+            Column(Modifier.fillMaxSize().padding(horizontal = maxWidth * 0.045f, vertical = maxHeight * 0.045f)) {
+                // Top system strip: discreet brand, status and settings.
+                Row(Modifier.fillMaxWidth(), verticalAlignment = Alignment.CenterVertically) {
+                    androidx.compose.foundation.Image(
+                        painterResource(com.qplay.launcher.R.drawable.qplay_logo),
+                        contentDescription = "QPlay",
+                        modifier = Modifier.size(42.dp)
+                    )
+                    Spacer(Modifier.width(12.dp))
+                    Text("QPLAY", color = Color.White, fontSize = 19.sp, fontWeight = FontWeight.ExtraBold, letterSpacing = 2.2.sp)
+                    Spacer(Modifier.weight(1f))
+                    Column(horizontalAlignment = Alignment.End) {
+                        Text(if (peanuts != null) "PEANUTS CONECTADO" else "PEANUTS DESCONECTADO",
+                            color = if (peanuts != null) Color(0xFF8FC6A0) else Color(0xFFE2A09A),
+                            fontSize = 9.sp, fontWeight = FontWeight.Bold, letterSpacing = 1.sp)
+                        Text("$totalItems ITENS NA BIBLIOTECA", color = Muted, fontSize = 9.sp)
+                    }
+                    Spacer(Modifier.width(12.dp))
+                    Box {
+                        IconButton(onClick = { settingsOpen = true }) {
+                            Icon(Icons.Rounded.Menu, "Menu", tint = Color.White, modifier = Modifier.size(29.dp))
+                        }
+                        DropdownMenu(expanded = settingsOpen, onDismissRequest = { settingsOpen = false }) {
+                            DropdownMenuItem(text = { Text("Selecionar pasta dos jogos") }, leadingIcon = { Icon(Icons.Rounded.FolderOpen, null) }, onClick = { settingsOpen = false; folderPicker.launch(folderUri) })
+                            DropdownMenuItem(text = { Text("Escolher aplicativos") }, leadingIcon = { Icon(Icons.Rounded.Apps, null) }, onClick = { settingsOpen = false; tab = "Aplicativos" })
+                            DropdownMenuItem(text = { Text("Atualizar biblioteca") }, leadingIcon = { Icon(Icons.Rounded.Refresh, null) }, onClick = { settingsOpen = false; refreshToken++; apps = installedApps() })
+                        }
                     }
                 }
-            }
-            Spacer(Modifier.height(28.dp))
-            Row(verticalAlignment = Alignment.CenterVertically) {
-                Column(Modifier.weight(1f)) {
-                    Text(if (tab == "Biblioteca") "JOGAR" else "APLICATIVOS", color = Color.White, fontSize = 30.sp, fontWeight = FontWeight.ExtraBold, letterSpacing = 1.sp)
-                    Text(if (tab == "Biblioteca") "Escolha seu próximo jogo" else "Selecione o que deseja ter na sua central", color = Muted, fontSize = 14.sp)
-                }
-                Row(horizontalArrangement = Arrangement.spacedBy(8.dp)) {
-                    listOf("Biblioteca", "Aplicativos").forEach { item -> FilterChip(selected = tab == item, onClick = { tab = item }, label = { Text(item) }) }
-                }
-            }
-            Spacer(Modifier.height(25.dp))
-            if (tab == "Biblioteca") {
-                if (scanning) {
-                    Box(Modifier.fillMaxSize(), contentAlignment = Alignment.Center) { CircularProgressIndicator(color = Accent) }
-                } else {
-                    val libraryApps = apps.filter { it.packageName in selectedApps }
-                    if (games.isEmpty() && libraryApps.isEmpty()) {
-                        Box(Modifier.fillMaxSize(), contentAlignment = Alignment.Center) {
-                            Column(horizontalAlignment = Alignment.CenterHorizontally, verticalArrangement = Arrangement.spacedBy(12.dp)) {
-                                Icon(Icons.Rounded.SportsEsports, null, tint = Color(0xFF596477), modifier = Modifier.size(58.dp))
-                                Text("Sua biblioteca está esperando", color = Color.White, fontSize = 22.sp, fontWeight = FontWeight.Bold)
+
+                if (tab == "Biblioteca") {
+                    if (scanning) {
+                        Box(Modifier.weight(1f).fillMaxWidth(), contentAlignment = Alignment.Center) {
+                            CircularProgressIndicator(color = Accent)
+                        }
+                    } else if (totalItems == 0) {
+                        Box(Modifier.weight(1f).fillMaxWidth(), contentAlignment = Alignment.Center) {
+                            Column(horizontalAlignment = Alignment.CenterHorizontally, verticalArrangement = Arrangement.spacedBy(13.dp)) {
+                                Icon(Icons.Rounded.SportsEsports, null, tint = Color(0xFF596477), modifier = Modifier.size(64.dp))
+                                Text("Sua biblioteca está esperando", color = Color.White, fontSize = 23.sp, fontWeight = FontWeight.Bold)
                                 Text("Adicione uma pasta de jogos ou escolha aplicativos no menu.", color = Muted, fontSize = 13.sp)
                                 Button(onClick = { folderPicker.launch(folderUri) }, colors = ButtonDefaults.buttonColors(containerColor = Accent)) {
                                     Icon(Icons.Rounded.FolderOpen, null); Spacer(Modifier.width(8.dp)); Text("Selecionar pasta")
@@ -200,38 +202,71 @@ class MainActivity : ComponentActivity() {
                             }
                         }
                     } else {
-                        Row(verticalAlignment = Alignment.CenterVertically) {
-                            Text("SEUS JOGOS", color = Muted, fontSize = 11.sp, fontWeight = FontWeight.Bold, letterSpacing = 2.sp)
-                            Spacer(Modifier.weight(1f))
-                            Text("${games.size + libraryApps.size} ITENS", color = Muted, fontSize = 10.sp, fontWeight = FontWeight.Bold)
-                        }
-                        Spacer(Modifier.height(14.dp))
                         var focusedGameName by remember { mutableStateOf(games.firstOrNull()?.name ?: libraryApps.firstOrNull()?.name.orEmpty()) }
-                        Text(focusedGameName, color = Color(0xFF36BCEB), fontSize = 25.sp, fontWeight = FontWeight.Medium)
-                        Spacer(Modifier.height(8.dp))
-                        LazyRow(contentPadding = PaddingValues(horizontal = 5.dp, vertical = 12.dp), horizontalArrangement = Arrangement.spacedBy(14.dp), modifier = Modifier.weight(1f)) {
-                            rowItems(games, key = { it.uri.toString() }) { game -> SwitchGameCard(game.uri.toString(), game.name, prefs, { launchNup(game) }, { focusedGameName = it }) }
-                            rowItems(libraryApps, key = { "app:" + it.packageName }) { app -> SwitchGameCard(app.packageName, app.name, prefs, { launchAndroidApp(app.packageName) }, { focusedGameName = it }) }
+                        Spacer(Modifier.weight(0.16f))
+                        // The selected title occupies its own band, as on a console home screen.
+                        Column(Modifier.fillMaxWidth(), horizontalAlignment = Alignment.CenterHorizontally) {
+                            Text(focusedGameName.uppercase(), color = Color.White, fontSize = 23.sp,
+                                fontWeight = FontWeight.Medium, letterSpacing = 1.4.sp,
+                                maxLines = 1, overflow = TextOverflow.Ellipsis)
+                            Spacer(Modifier.height(5.dp))
+                            Text("BIBLIOTECA DE JOGOS", color = Muted, fontSize = 9.sp,
+                                fontWeight = FontWeight.Bold, letterSpacing = 2.4.sp)
                         }
-                        Spacer(Modifier.height(12.dp))
-                        Row(verticalAlignment = Alignment.CenterVertically) {
-                            Icon(Icons.Rounded.Circle, null, tint = Accent, modifier = Modifier.size(7.dp))
-                            Spacer(Modifier.width(8.dp))
-                            Text("A / ENTER  •  ABRIR JOGO", color = Muted, fontSize = 10.sp, fontWeight = FontWeight.Bold, letterSpacing = 1.sp)
-                            Spacer(Modifier.weight(1f))
-                            Text(folderUri?.lastPathSegment?.substringAfterLast(':') ?: "PASTA NÃO DEFINIDA", color = Muted, fontSize = 10.sp, maxLines = 1, overflow = TextOverflow.Ellipsis)
+                        Spacer(Modifier.weight(0.16f))
+                        // A single continuous horizontal shelf; side tiles remain visible.
+                        LazyRow(
+                            contentPadding = PaddingValues(horizontal = (maxWidth - tileSize) / 2),
+                            horizontalArrangement = Arrangement.spacedBy((tileSize * 0.075f).coerceAtLeast(10.dp)),
+                            verticalAlignment = Alignment.CenterVertically,
+                            modifier = Modifier.fillMaxWidth().height(tileSize + 34.dp)
+                        ) {
+                            rowItems(games, key = { it.uri.toString() }) { game ->
+                                SwitchGameCard(game.uri.toString(), game.name, prefs, tileSize,
+                                    { launchNup(game) }, { focusedGameName = it })
+                            }
+                            rowItems(libraryApps, key = { "app:" + it.packageName }) { app ->
+                                SwitchGameCard(app.packageName, app.name, prefs, tileSize,
+                                    { launchAndroidApp(app.packageName) }, { focusedGameName = it })
+                            }
+                        }
+                        Spacer(Modifier.weight(0.18f))
+                    }
+                } else {
+                    Column(Modifier.weight(1f).fillMaxWidth().padding(top = 24.dp)) {
+                        Text("APLICATIVOS", color = Color.White, fontSize = 25.sp, fontWeight = FontWeight.ExtraBold, letterSpacing = 1.sp)
+                        Spacer(Modifier.height(6.dp))
+                        Text("Escolha quais aplicativos aparecem na sua central de jogos.", color = Muted, fontSize = 12.sp)
+                        Spacer(Modifier.height(18.dp))
+                        LazyVerticalGrid(columns = GridCells.Adaptive(minSize = 230.dp), horizontalArrangement = Arrangement.spacedBy(12.dp), verticalArrangement = Arrangement.spacedBy(12.dp)) {
+                            items(apps, key = { it.packageName }) { app ->
+                                SelectableAppTile(app, app.packageName in selectedApps, onToggle = {
+                                    selectedApps = if (app.packageName in selectedApps) selectedApps - app.packageName else selectedApps + app.packageName
+                                    prefs.edit().putStringSet("selected_apps", selectedApps).apply()
+                                }, onLaunch = { launchAndroidApp(app.packageName) })
+                            }
                         }
                     }
                 }
-            } else {
-                Text("Marque os aplicativos que deseja exibir junto com seus jogos. Clique no nome para abrir.", color = Muted, fontSize = 12.sp)
-                Spacer(Modifier.height(14.dp))
-                LazyVerticalGrid(columns = GridCells.Adaptive(minSize = 230.dp), horizontalArrangement = Arrangement.spacedBy(12.dp), verticalArrangement = Arrangement.spacedBy(12.dp)) {
-                    items(apps, key = { it.packageName }) { app ->
-                        SelectableAppTile(app, app.packageName in selectedApps, onToggle = {
-                            selectedApps = if (app.packageName in selectedApps) selectedApps - app.packageName else selectedApps + app.packageName
-                            prefs.edit().putStringSet("selected_apps", selectedApps).apply()
-                        }, onLaunch = { launchAndroidApp(app.packageName) })
+
+                // Console-style command strip anchored to the bottom edge.
+                if (tab == "Biblioteca") {
+                    Row(Modifier.fillMaxWidth().padding(top = 10.dp), verticalAlignment = Alignment.CenterVertically) {
+                        Row(verticalAlignment = Alignment.CenterVertically, horizontalArrangement = Arrangement.spacedBy(7.dp)) {
+                            Surface(color = Color(0xFF303846), shape = RoundedCornerShape(50)) {
+                                Text("A", color = Color.White, fontSize = 10.sp, fontWeight = FontWeight.Bold, modifier = Modifier.padding(horizontal = 8.dp, vertical = 4.dp))
+                            }
+                            Text("ABRIR", color = Muted, fontSize = 9.sp, fontWeight = FontWeight.Bold, letterSpacing = 1.sp)
+                        }
+                        Spacer(Modifier.width(18.dp))
+                        Row(verticalAlignment = Alignment.CenterVertically, horizontalArrangement = Arrangement.spacedBy(7.dp)) {
+                            Surface(color = Color(0xFF303846), shape = RoundedCornerShape(50)) {
+                                Text("＋", color = Color.White, fontSize = 10.sp, fontWeight = FontWeight.Bold, modifier = Modifier.padding(horizontal = 7.dp, vertical = 4.dp))
+                            }
+                            Text("ADICIONAR JOGOS NO MENU", color = Muted, fontSize = 9.sp, fontWeight = FontWeight.Bold, letterSpacing = .7.sp)
+                        }
+                        Spacer(Modifier.weight(1f))
+                        Text(scanMessage.uppercase(), color = Muted, fontSize = 8.sp, maxLines = 1, overflow = TextOverflow.Ellipsis)
                     }
                 }
             }
@@ -240,7 +275,7 @@ class MainActivity : ComponentActivity() {
 
     @OptIn(ExperimentalFoundationApi::class)
     @Composable
-    private fun SwitchGameCard(key: String, originalName: String, prefs: android.content.SharedPreferences, onClick: () -> Unit, onFocusName: (String) -> Unit) {
+    private fun SwitchGameCard(key: String, originalName: String, prefs: android.content.SharedPreferences, tileSize: androidx.compose.ui.unit.Dp, onClick: () -> Unit, onFocusName: (String) -> Unit) {
         var focused by remember { mutableStateOf(false) }
         var editOpen by remember { mutableStateOf(false) }
         var title by remember(key) { mutableStateOf(prefs.getString("edit_name_" + key, originalName) ?: originalName) }
@@ -255,7 +290,7 @@ class MainActivity : ComponentActivity() {
         val cover = produceState<ImageBitmap?>(null, coverUri) {
             value = withContext(Dispatchers.IO) { try { coverUri?.let { uri -> contentResolver.openInputStream(uri)?.use { stream -> BitmapFactory.decodeStream(stream) }?.asImageBitmap() } } catch (_: Exception) { null } }
         }
-        Surface(color = if (focused) Color(0xFF343B47) else Color(0xFF292929), shape = RoundedCornerShape(3.dp), border = BorderStroke(if (focused) 4.dp else 2.dp, if (focused) Color(0xFF39C5E8) else Color(0xFF3A3A3A)), modifier = Modifier.width(220.dp).height(220.dp).onFocusChanged { focused = it.isFocused; if (it.isFocused) onFocusName(title) }.combinedClickable(onClick = onClick, onLongClick = { draftTitle = title; editOpen = true })) {
+        Surface(color = if (focused) Color(0xFF343B47) else Color(0xFF292929), shape = RoundedCornerShape(3.dp), border = BorderStroke(if (focused) 4.dp else 2.dp, if (focused) Color(0xFF39C5E8) else Color(0xFF3A3A3A)), modifier = Modifier.width(tileSize).height(tileSize).onFocusChanged { focused = it.isFocused; if (it.isFocused) onFocusName(title) }.combinedClickable(onClick = onClick, onLongClick = { draftTitle = title; editOpen = true })) {
             Box(Modifier.fillMaxSize()) {
                 if (cover.value != null) androidx.compose.foundation.Image(bitmap = cover.value!!, contentDescription = title, contentScale = ContentScale.Crop, modifier = Modifier.fillMaxSize())
                 else Box(Modifier.fillMaxSize().background(Color(0xFF303030)), contentAlignment = Alignment.Center) { Icon(Icons.Rounded.SportsEsports, null, tint = Color(0xFF777777), modifier = Modifier.size(58.dp)) }
