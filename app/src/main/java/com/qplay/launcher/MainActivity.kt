@@ -5,6 +5,11 @@ import android.content.Intent
 import android.content.pm.PackageManager
 import android.net.Uri
 import android.os.Bundle
+import android.content.IntentFilter
+import android.os.BatteryManager
+import java.time.LocalTime
+import java.time.format.DateTimeFormatter
+import kotlinx.coroutines.delay
 import androidx.activity.ComponentActivity
 import androidx.activity.compose.setContent
 import androidx.activity.compose.BackHandler
@@ -119,6 +124,13 @@ class MainActivity : ComponentActivity() {
         var selectedApps by remember { mutableStateOf(prefs.getStringSet("selected_apps", emptySet()).orEmpty()) }
         var scanMessage by remember { mutableStateOf("Escolha a pasta onde estão seus arquivos .nup") }
         var peanuts by remember { mutableStateOf<String?>(null) }
+        var displayName by remember { mutableStateOf(prefs.getString("display_name", "") ?: "") }
+        var nameDialog by remember { mutableStateOf(false) }
+        var clock by remember { mutableStateOf(LocalTime.now().format(DateTimeFormatter.ofPattern("HH:mm"))) }
+        var battery by remember { mutableIntStateOf(100) }
+        var favoriteKeys by remember { mutableStateOf(prefs.getStringSet("favorites", emptySet()).orEmpty()) }
+        var groupMap by remember { mutableStateOf(prefs.all.filterKeys { it.startsWith("group_") }.mapKeys { it.key.removePrefix("group_") }.mapValues { it.value as? String ?: "" }) }
+        var libraryFilter by remember { mutableStateOf("Todos") }
 
         val folderPicker = rememberLauncherForActivityResult(ActivityResultContracts.OpenDocumentTree()) { uri ->
             if (uri != null) {
@@ -132,7 +144,19 @@ class MainActivity : ComponentActivity() {
             }
         }
 
-        LaunchedEffect(Unit) { withContext(Dispatchers.IO) { val discoveredApps = installedApps(); val discoveredPeanuts = peanutsPackage(); withContext(Dispatchers.Main) { apps = discoveredApps; peanuts = discoveredPeanuts } } }
+        LaunchedEffect(Unit) {
+            withContext(Dispatchers.IO) { val discoveredApps = installedApps(); val discoveredPeanuts = peanutsPackage(); withContext(Dispatchers.Main) { apps = discoveredApps; peanuts = discoveredPeanuts } }
+        }
+        LaunchedEffect(Unit) {
+            while (true) {
+                clock = LocalTime.now().format(DateTimeFormatter.ofPattern("HH:mm"))
+                val batteryIntent = registerReceiver(null, IntentFilter(Intent.ACTION_BATTERY_CHANGED))
+                val level = batteryIntent?.getIntExtra(BatteryManager.EXTRA_LEVEL, -1) ?: -1
+                val scale = batteryIntent?.getIntExtra(BatteryManager.EXTRA_SCALE, -1) ?: -1
+                if (level >= 0 && scale > 0) battery = level * 100 / scale
+                delay(30000)
+            }
+        }
 
         LaunchedEffect(folderUri, refreshToken) {
             val root = folderUri
@@ -150,12 +174,22 @@ class MainActivity : ComponentActivity() {
             }
         }
 
-        BackHandler(enabled = settingsOpen || tab != "Biblioteca") { if (settingsOpen) settingsOpen = false else tab = "Biblioteca" }
+        if (nameDialog) {
+            var draftName by remember { mutableStateOf(displayName) }
+            AlertDialog(onDismissRequest = { nameDialog = false }, title = { Text("Personalizar saudação") }, text = {
+                OutlinedTextField(value = draftName, onValueChange = { draftName = it }, label = { Text("Como deseja ser chamado?") }, singleLine = true)
+            }, confirmButton = { TextButton(onClick = { displayName = draftName.trim(); prefs.edit().putString("display_name", displayName).apply(); nameDialog = false }) { Text("Salvar") } },
+                dismissButton = { TextButton(onClick = { nameDialog = false }) { Text("Cancelar") } })
+        }
+
+        BackHandler(enabled = settingsOpen || nameDialog || tab != "Biblioteca") { if (settingsOpen) settingsOpen = false else tab = "Biblioteca" }
 
         BoxWithConstraints(Modifier.fillMaxSize().background(Bg)) {
             val tileSize = (maxWidth * 0.205f).coerceIn(148.dp, 226.dp)
             val libraryApps = apps.filter { it.packageName in selectedApps }
-            val totalItems = games.size + libraryApps.size
+            val visibleGames = games.filter { game -> when (libraryFilter) { "Favoritos" -> game.uri.toString() in favoriteKeys; "Grupos" -> !groupMap[game.uri.toString()].isNullOrBlank(); else -> true } }
+            val visibleApps = libraryApps.filter { app -> when (libraryFilter) { "Favoritos" -> app.packageName in favoriteKeys; "Grupos" -> !groupMap[app.packageName].isNullOrBlank(); else -> true } }
+            val totalItems = visibleGames.size + visibleApps.size
 
             Column(Modifier.fillMaxSize().background(Bg).padding(horizontal = maxWidth * 0.025f, vertical = maxHeight * 0.045f)) {
                 // Top system strip: discreet brand, status and settings.
@@ -166,17 +200,25 @@ class MainActivity : ComponentActivity() {
                         modifier = Modifier.size(42.dp)
                     )
                     Spacer(Modifier.width(12.dp))
-                    Text("QPLAY", color = Color.White, fontSize = 19.sp, fontWeight = FontWeight.ExtraBold, letterSpacing = 2.2.sp)
+                    Spacer(Modifier.width(12.dp))
+                    val greeting = when (LocalTime.now().hour) { in 5..11 -> "Bom dia"; in 12..17 -> "Boa tarde"; else -> "Boa noite" }
+                    Text(if (displayName.isBlank()) greeting else "$greeting, $displayName", color = Color.White, fontSize = 18.sp, fontWeight = FontWeight.SemiBold)
                     Spacer(Modifier.weight(1f))
+                    Text("$clock  •  $battery%", color = Color(0xFFE6E6E6), fontSize = 15.sp, fontWeight = FontWeight.Medium)
+                    Spacer(Modifier.width(12.dp))
 
                     Box {
                         IconButton(onClick = { settingsOpen = true }) {
-                            Icon(Icons.Rounded.Menu, "Menu", tint = Color.White, modifier = Modifier.size(29.dp))
+                            Icon(Icons.Rounded.Settings, "Configurações", tint = Color.White, modifier = Modifier.size(27.dp))
                         }
                         DropdownMenu(expanded = settingsOpen, onDismissRequest = { settingsOpen = false }) {
                             DropdownMenuItem(text = { Text("Selecionar pasta dos jogos") }, leadingIcon = { Icon(Icons.Rounded.FolderOpen, null) }, onClick = { settingsOpen = false; folderPicker.launch(folderUri) })
                             DropdownMenuItem(text = { Text("Escolher aplicativos") }, leadingIcon = { Icon(Icons.Rounded.Apps, null) }, onClick = { settingsOpen = false; tab = "Aplicativos" })
-                            DropdownMenuItem(text = { Text("Atualizar biblioteca") }, leadingIcon = { Icon(Icons.Rounded.Refresh, null) }, onClick = { settingsOpen = false; refreshToken++; apps = installedApps() })
+                            DropdownMenuItem(text = { Text("Meu nome / saudação") }, leadingIcon = { Icon(Icons.Rounded.Person, null) }, onClick = { settingsOpen = false; nameDialog = true })
+                            DropdownMenuItem(text = { Text("Todos os jogos") }, onClick = { settingsOpen = false; libraryFilter = "Todos" })
+                            DropdownMenuItem(text = { Text("Favoritos") }, leadingIcon = { Icon(Icons.Rounded.Favorite, null) }, onClick = { settingsOpen = false; libraryFilter = "Favoritos" })
+                            DropdownMenuItem(text = { Text("Grupos") }, leadingIcon = { Icon(Icons.Rounded.Folder, null) }, onClick = { settingsOpen = false; libraryFilter = "Grupos" })
+                            DropdownMenuItem(text = { Text("Atualizar biblioteca") }, leadingIcon = { Icon(Icons.Rounded.Refresh, null) }, onClick = { settingsOpen = false; refreshToken++; apps = emptyList() })
                         }
                     }
                 }
@@ -199,7 +241,9 @@ class MainActivity : ComponentActivity() {
                         }
                     } else {
                         var focusedGameName by remember { mutableStateOf(games.firstOrNull()?.name ?: libraryApps.firstOrNull()?.name.orEmpty()) }
-                        Spacer(Modifier.weight(1f))
+                        Spacer(Modifier.weight(0.35f))
+                        Text(focusedGameName.uppercase(), color = Color.White, fontSize = 25.sp, fontWeight = FontWeight.Medium, letterSpacing = 1.2.sp, maxLines = 1, overflow = TextOverflow.Ellipsis)
+                        Spacer(Modifier.weight(0.18f))
                         // A single continuous horizontal shelf; side tiles remain visible.
                         LazyRow(
                             contentPadding = PaddingValues(horizontal = 0.dp),
@@ -207,13 +251,23 @@ class MainActivity : ComponentActivity() {
                             verticalAlignment = Alignment.CenterVertically,
                             modifier = Modifier.fillMaxWidth().height(tileSize + 34.dp)
                         ) {
-                            rowItems(games, key = { it.uri.toString() }) { game ->
-                                SwitchGameCard(game.uri.toString(), game.name, prefs, tileSize, games.firstOrNull()?.uri == game.uri,
-                                    { launchNup(game) }, { focusedGameName = it })
+                            rowItems(visibleGames, key = { it.uri.toString() }) { game ->
+                                val key = game.uri.toString()
+                                SwitchGameCard(key, game.name, prefs, tileSize, key in favoriteKeys, groupMap[key].orEmpty(), visibleGames.firstOrNull()?.uri == game.uri,
+                                    { launchNup(game) }, { focusedGameName = it }) { fav, group ->
+                                    favoriteKeys = if (fav) favoriteKeys + key else favoriteKeys - key
+                                    groupMap = groupMap + (key to group)
+                                    prefs.edit().putStringSet("favorites", favoriteKeys).putString("group_" + key, group).apply()
+                                }
                             }
-                            rowItems(libraryApps, key = { "app:" + it.packageName }) { app ->
-                                SwitchGameCard(app.packageName, app.name, prefs, tileSize, games.isEmpty() && libraryApps.firstOrNull()?.packageName == app.packageName,
-                                    { launchAndroidApp(app.packageName) }, { focusedGameName = it })
+                            rowItems(visibleApps, key = { "app:" + it.packageName }) { app ->
+                                val key = app.packageName
+                                SwitchGameCard(key, app.name, prefs, tileSize, key in favoriteKeys, groupMap[key].orEmpty(), visibleApps.firstOrNull()?.packageName == app.packageName,
+                                    { launchAndroidApp(app.packageName) }, { focusedGameName = it }) { fav, group ->
+                                    favoriteKeys = if (fav) favoriteKeys + key else favoriteKeys - key
+                                    groupMap = groupMap + (key to group)
+                                    prefs.edit().putStringSet("favorites", favoriteKeys).putString("group_" + key, group).apply()
+                                }
                             }
                         }
                         Spacer(Modifier.weight(1f))
@@ -242,8 +296,11 @@ class MainActivity : ComponentActivity() {
 
     @OptIn(ExperimentalFoundationApi::class)
     @Composable
-    private fun SwitchGameCard(key: String, originalName: String, prefs: android.content.SharedPreferences, tileSize: androidx.compose.ui.unit.Dp, initiallySelected: Boolean, onClick: () -> Unit, onFocusName: (String) -> Unit) {
+    private fun SwitchGameCard(key: String, originalName: String, prefs: android.content.SharedPreferences, tileSize: androidx.compose.ui.unit.Dp, isFavorite: Boolean, initialGroup: String, initiallySelected: Boolean, onClick: () -> Unit, onFocusName: (String) -> Unit, onMetadataChanged: (Boolean, String) -> Unit) {
         var focused by remember(key) { mutableStateOf(initiallySelected) }
+        var favorite by remember(key) { mutableStateOf(isFavorite) }
+        var draftGroup by remember(key) { mutableStateOf(initialGroup) }
+        var groupName by remember(key) { mutableStateOf(initialGroup) }
         var editOpen by remember { mutableStateOf(false) }
         var title by remember(key) { mutableStateOf(prefs.getString("edit_name_" + key, originalName) ?: originalName) }
         var coverUri by remember(key) { mutableStateOf(prefs.getString("cover_" + key, null)?.let(Uri::parse)) }
@@ -257,19 +314,25 @@ class MainActivity : ComponentActivity() {
         val cover = produceState<ImageBitmap?>(null, coverUri) {
             value = withContext(Dispatchers.IO) { try { coverUri?.let { uri -> contentResolver.openInputStream(uri)?.use { stream -> BitmapFactory.decodeStream(stream) }?.asImageBitmap() } } catch (_: Exception) { null } }
         }
-        Surface(color = if (focused) Color(0xFF343434) else Color(0xFF292929), shape = RoundedCornerShape(3.dp), border = BorderStroke(if (focused) 4.dp else 2.dp, if (focused) Color(0xFF35BCEB) else Color(0xFF3A3A3A)), modifier = Modifier.width(tileSize).height(tileSize).onFocusChanged { focused = it.isFocused; if (it.isFocused) onFocusName(title) }.combinedClickable(onClick = onClick, onLongClick = { draftTitle = title; editOpen = true })) {
+        Surface(color = if (focused) Color(0xFF343434) else Color(0xFF292929), shape = RoundedCornerShape(3.dp), border = BorderStroke(if (focused) 4.dp else 2.dp, if (focused) Color(0xFF35BCEB) else Color(0xFF3A3A3A)), modifier = Modifier.width(tileSize).height(tileSize).onFocusChanged { focused = it.isFocused; if (it.isFocused) onFocusName(title) }.combinedClickable(onClick = onClick, onLongClick = { draftTitle = title; draftGroup = groupName; editOpen = true })) {
             Box(Modifier.fillMaxSize()) {
                 if (cover.value != null) androidx.compose.foundation.Image(bitmap = cover.value!!, contentDescription = title, contentScale = ContentScale.Crop, modifier = Modifier.fillMaxSize())
                 else Box(Modifier.fillMaxSize().background(Color(0xFF303030)), contentAlignment = Alignment.Center) { Icon(Icons.Rounded.SportsEsports, null, tint = Color(0xFF777777), modifier = Modifier.size(58.dp)) }
                 Box(Modifier.align(Alignment.BottomStart).fillMaxWidth().background(Color(0xCC111318)).padding(horizontal = 10.dp, vertical = 8.dp)) { Text(title, color = if (focused) Color(0xFF27B8E8) else Color(0xFF888888), fontSize = 12.sp, fontWeight = FontWeight.Medium, maxLines = 2, overflow = TextOverflow.Ellipsis) }
+                if (isFavorite) Icon(Icons.Rounded.Favorite, "Favorito", tint = Color(0xFFE65B68), modifier = Modifier.align(Alignment.TopEnd).padding(8.dp))
             }
         }
         if (editOpen) AlertDialog(onDismissRequest = { editOpen = false }, title = { Text("Editar jogo") }, text = {
             Column(verticalArrangement = Arrangement.spacedBy(12.dp)) {
                 OutlinedTextField(value = draftTitle, onValueChange = { draftTitle = it }, label = { Text("Nome exibido") }, singleLine = true)
+                Row(verticalAlignment = Alignment.CenterVertically) {
+                    Checkbox(checked = favorite, onCheckedChange = { favorite = it })
+                    Text("Adicionar aos favoritos")
+                }
+                OutlinedTextField(value = draftGroup, onValueChange = { draftGroup = it }, label = { Text("Grupo") }, singleLine = true)
                 OutlinedButton(onClick = { picker.launch(arrayOf("image/*")) }) { Icon(Icons.Rounded.Image, null); Spacer(Modifier.width(8.dp)); Text(if (coverUri == null) "Escolher capa" else "Trocar capa") }
             }
-        }, confirmButton = { TextButton(onClick = { title = draftTitle.ifBlank { originalName }; prefs.edit().putString("edit_name_" + key, title).apply(); editOpen = false; onFocusName(title) }) { Text("Salvar") } }, dismissButton = { TextButton(onClick = { editOpen = false }) { Text("Cancelar") } })
+        }, confirmButton = { TextButton(onClick = { title = draftTitle.ifBlank { originalName }; prefs.edit().putString("edit_name_" + key, title).apply(); groupName = draftGroup.trim(); onMetadataChanged(favorite, groupName); editOpen = false; onFocusName(title) }) { Text("Salvar") } }, dismissButton = { TextButton(onClick = { editOpen = false }) { Text("Cancelar") } })
     }
     @Composable
     private fun SelectableAppTile(app: InstalledGame, selected: Boolean, onToggle: () -> Unit, onLaunch: () -> Unit) {
