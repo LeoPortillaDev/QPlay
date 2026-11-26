@@ -33,6 +33,8 @@ import androidx.compose.material.icons.rounded.*
 import androidx.compose.material3.*
 import androidx.compose.ui.window.Dialog
 import androidx.compose.runtime.*
+import androidx.compose.animation.core.animateFloatAsState
+import androidx.compose.ui.graphics.graphicsLayer
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.draw.clip
@@ -89,6 +91,8 @@ class MainActivity : ComponentActivity() {
             app.packageName != packageName && (app.packageName in peanutsPackages || label.contains("Peanuts", true) || app.packageName.contains("peanuts", true))
         }?.packageName
     }
+
+    private fun playSoundEffect(effect: Int) { window.decorView.playSoundEffect(effect) }
 
     private fun launchAndroidApp(packageName: String) {
         packageManager.getLaunchIntentForPackage(packageName)?.let { startActivity(it) }
@@ -347,7 +351,8 @@ class MainActivity : ComponentActivity() {
         val cover = produceState<ImageBitmap?>(null, coverUri) {
             value = withContext(Dispatchers.IO) { try { coverUri?.let { uri -> contentResolver.openInputStream(uri)?.use { stream -> BitmapFactory.decodeStream(stream) }?.asImageBitmap() } } catch (_: Exception) { null } }
         }
-        Surface(color = if (focused) Color(0xFF343434) else Color(0xFF292929), shape = RoundedCornerShape(3.dp), border = BorderStroke(if (focused) 4.dp else 2.dp, if (focused) Color(0xFF35BCEB) else Color(0xFF3A3A3A)), modifier = Modifier.width(tileSize).height(tileSize).onFocusChanged { focused = it.isFocused; if (it.isFocused) onFocusName(title) }.combinedClickable(onClick = onClick, onLongClick = { draftTitle = title; draftGroup = groupName; editOpen = true })) {
+        val tileScale by animateFloatAsState(if (focused) 1.07f else 1f, label = "tileScale")
+        Surface(color = if (focused) Color(0xFF343434) else Color(0xFF292929), shape = RoundedCornerShape(3.dp), border = BorderStroke(if (focused) 4.dp else 2.dp, if (focused) Color(0xFF35BCEB) else Color(0xFF3A3A3A)), modifier = Modifier.width(tileSize).height(tileSize).graphicsLayer { scaleX = tileScale; scaleY = tileScale }.onFocusChanged { focused = it.isFocused; if (it.isFocused) { onFocusName(title); playSoundEffect(android.view.SoundEffectConstants.NAVIGATION_DOWN) } }.combinedClickable(onClick = { playSoundEffect(android.view.SoundEffectConstants.CLICK); onClick() }, onLongClick = { draftTitle = title; draftGroup = groupName; editOpen = true })) {
             Box(Modifier.fillMaxSize()) {
                 if (cover.value != null) androidx.compose.foundation.Image(bitmap = cover.value!!, contentDescription = title, contentScale = ContentScale.Crop, modifier = Modifier.fillMaxSize())
                 else Box(Modifier.fillMaxSize().background(Color(0xFF303030)), contentAlignment = Alignment.Center) { Icon(Icons.Rounded.SportsEsports, null, tint = Color(0xFF777777), modifier = Modifier.size(58.dp)) }
