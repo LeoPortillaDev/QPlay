@@ -242,7 +242,7 @@ class MainActivity : ComponentActivity() {
                                     }
                                     Divider(color = Color(0xFF777777))
                                     Row(Modifier.weight(1f).fillMaxWidth().padding(vertical = 8.dp)) {
-                                        Column(Modifier.width(sideWidth).fillMaxHeight(), verticalArrangement = Arrangement.spacedBy(2.dp)) {
+                                        Column(Modifier.width(sideWidth).fillMaxHeight().verticalScroll(rememberScrollState()), verticalArrangement = Arrangement.spacedBy(2.dp)) {
                                             listOf("Perfil", "Aparência", "Biblioteca", "Imagens", "Emuladores", "Controles", "Sistema").forEach { category ->
                                                 val active = settingsCategory == category
                                                 Surface(onClick = { settingsCategory = category }, color = if (active) Color(0xFF252B30) else Color.Transparent, shape = RoundedCornerShape(5.dp), modifier = Modifier.fillMaxWidth()) {
