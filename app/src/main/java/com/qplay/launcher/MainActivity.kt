@@ -3,17 +3,23 @@ package com.qplay.launcher
 import android.content.ComponentName
 import android.content.Intent
 import android.content.pm.PackageManager
+import android.net.Uri
 import android.os.Bundle
+import android.provider.DocumentsContract
 import androidx.activity.ComponentActivity
 import androidx.activity.compose.setContent
 import androidx.activity.compose.BackHandler
+import androidx.activity.compose.rememberLauncherForActivityResult
+import androidx.activity.result.contract.ActivityResultContracts
+import androidx.compose.foundation.BorderStroke
 import androidx.compose.foundation.background
 import androidx.compose.foundation.clickable
+import androidx.compose.foundation.focusable
 import androidx.compose.foundation.layout.*
-import androidx.compose.foundation.lazy.LazyColumn
-import androidx.compose.foundation.lazy.items
+import androidx.compose.foundation.lazy.grid.GridCells
+import androidx.compose.foundation.lazy.grid.LazyVerticalGrid
+import androidx.compose.foundation.lazy.grid.items
 import androidx.compose.foundation.shape.RoundedCornerShape
-import androidx.compose.foundation.text.KeyboardOptions
 import androidx.compose.material.icons.Icons
 import androidx.compose.material.icons.rounded.*
 import androidx.compose.material3.*
@@ -21,41 +27,42 @@ import androidx.compose.runtime.*
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.draw.clip
+import androidx.compose.ui.focus.onFocusChanged
 import androidx.compose.ui.graphics.Color
 import androidx.compose.ui.text.font.FontWeight
-import androidx.compose.ui.text.input.KeyboardCapitalization
-import androidx.compose.ui.text.input.KeyboardType
+import androidx.compose.ui.text.style.TextOverflow
 import androidx.compose.ui.unit.dp
 import androidx.compose.ui.unit.sp
+import androidx.documentfile.provider.DocumentFile
 import com.qplay.launcher.ui.QPlayTheme
 
 private data class InstalledGame(val name: String, val packageName: String, val isGame: Boolean)
-private data class PeanutsGame(val name: String, val titleId: String)
+private data class NupGame(val name: String, val uri: Uri, val fileName: String)
+
+private val Bg = Color(0xFF0B0D12)
+private val Panel = Color(0xFF171C26)
+private val Panel2 = Color(0xFF202735)
+private val Muted = Color(0xFF929BAD)
+private val Accent = Color(0xFFE34B43)
 
 class MainActivity : ComponentActivity() {
-    private val peanutsPackages = listOf(
-        "dev.nxnative.android",
-        "dev.bananative.android",
-        "dev.nxnative.android.play"
-    )
+    private val peanutsPackages = listOf("dev.nxnative.android", "dev.bananative.android", "dev.nxnative.android.play")
 
     override fun onCreate(savedInstanceState: Bundle?) {
         super.onCreate(savedInstanceState)
+        @Suppress("DEPRECATION")
         window.decorView.systemUiVisibility = (android.view.View.SYSTEM_UI_FLAG_FULLSCREEN or android.view.View.SYSTEM_UI_FLAG_HIDE_NAVIGATION or android.view.View.SYSTEM_UI_FLAG_IMMERSIVE_STICKY)
+        window.navigationBarColor = android.graphics.Color.rgb(11, 13, 18)
         setContent { QPlayTheme { QPlayApp() } }
     }
 
     private fun installedApps(): List<InstalledGame> {
-        val pm = packageManager
         val launcher = Intent(Intent.ACTION_MAIN).addCategory(Intent.CATEGORY_LAUNCHER)
-        return pm.queryIntentActivities(launcher, PackageManager.MATCH_ALL)
+        return packageManager.queryIntentActivities(launcher, PackageManager.MATCH_ALL)
             .mapNotNull { it.activityInfo?.applicationInfo }
             .distinctBy { it.packageName }
             .filter { it.packageName != packageName && it.packageName !in peanutsPackages }
-            .map {
-                val label = pm.getApplicationLabel(it).toString()
-                InstalledGame(label, it.packageName, it.category == android.content.pm.ApplicationInfo.CATEGORY_GAME)
-            }
+            .map { InstalledGame(packageManager.getApplicationLabel(it).toString(), it.packageName, it.category == android.content.pm.ApplicationInfo.CATEGORY_GAME) }
             .sortedWith(compareByDescending<InstalledGame> { it.isGame }.thenBy { it.name.lowercase() })
     }
 
@@ -65,146 +72,191 @@ class MainActivity : ComponentActivity() {
         packageManager.getLaunchIntentForPackage(packageName)?.let { startActivity(it) }
     }
 
-    private fun launchPeanuts(titleId: String) {
-        val pkg = peanutsPackage() ?: return
-        val intent = Intent(Intent.ACTION_MAIN).apply {
-            component = ComponentName(pkg, "dev.peanuts.launch.LaunchActivity")
-            putExtra("title_id", titleId.trim().uppercase())
+    private fun launchNup(game: NupGame) {
+        val pkg = peanutsPackage()
+        if (pkg == null) {
+            android.widget.Toast.makeText(this, "Peanuts Native não foi encontrado.", android.widget.Toast.LENGTH_LONG).show()
+            return
         }
-        try { startActivity(intent) } catch (_: Exception) {
-            // The installed Peanuts build may not expose the documented launcher alias.
+        val intent = Intent(Intent.ACTION_VIEW).apply {
+            component = ComponentName(pkg, "dev.peanuts.launch.LaunchActivity")
+            setDataAndType(game.uri, "application/octet-stream")
+            addFlags(Intent.FLAG_GRANT_READ_URI_PERMISSION)
+        }
+        try {
+            startActivity(intent)
+        } catch (e: Exception) {
+            android.widget.Toast.makeText(this, "O Peanuts não aceitou abrir este arquivo. Vamos validar a integração com esta versão.", android.widget.Toast.LENGTH_LONG).show()
         }
     }
 
     @Composable
     private fun QPlayApp() {
+        val prefs = remember { getSharedPreferences("qplay_library", MODE_PRIVATE) }
+        var folderUri by remember { mutableStateOf(prefs.getString("rom_folder_uri", null)?.let(Uri::parse)) }
+        var games by remember { mutableStateOf<List<NupGame>>(emptyList()) }
         var apps by remember { mutableStateOf(installedApps()) }
-        var peanuts by remember { mutableStateOf(loadPeanutsGames()) }
-        var showAllApps by remember { mutableStateOf(false) }
-        var showAddPeanuts by remember { mutableStateOf(false) }
-        var gameName by remember { mutableStateOf("") }
-        var titleId by remember { mutableStateOf("") }
-        var tab by remember { mutableStateOf("Jogos") }
-        val detectedPeanuts = peanutsPackage()
+        var tab by remember { mutableStateOf("Biblioteca") }
+        var scanning by remember { mutableStateOf(false) }
+        var scanMessage by remember { mutableStateOf("Escolha a pasta onde estão seus arquivos .nup") }
+        val peanuts = peanutsPackage()
 
-        BackHandler(enabled = showAddPeanuts) { showAddPeanuts = false }
+        val folderPicker = rememberLauncherForActivityResult(ActivityResultContracts.OpenDocumentTree()) { uri ->
+            if (uri != null) {
+                try {
+                    contentResolver.takePersistableUriPermission(uri, Intent.FLAG_GRANT_READ_URI_PERMISSION)
+                    folderUri = uri
+                    prefs.edit().putString("rom_folder_uri", uri.toString()).apply()
+                } catch (_: SecurityException) {
+                    scanMessage = "Não foi possível guardar a permissão desta pasta."
+                }
+            }
+        }
 
-        Column(Modifier.fillMaxSize().background(Color(0xFF10131B)).padding(horizontal = 30.dp, vertical = 20.dp)) {
+        LaunchedEffect(folderUri) {
+            val root = folderUri
+            if (root != null) {
+                scanning = true
+                scanMessage = "Procurando arquivos .nup…"
+                val found = with(kotlinx.coroutines.Dispatchers.IO) {
+                    scanNupFolder(root)
+                }
+                games = found
+                scanMessage = if (found.isEmpty()) "Nenhum arquivo .nup encontrado nesta pasta." else "${found.size} jogo(s) encontrado(s)"
+                scanning = false
+            } else {
+                games = emptyList()
+            }
+        }
+
+        BackHandler(enabled = tab != "Biblioteca") { tab = "Biblioteca" }
+
+        Column(Modifier.fillMaxSize().background(Bg).padding(horizontal = 34.dp, vertical = 22.dp)) {
             Row(verticalAlignment = Alignment.CenterVertically) {
-                Text("Q", color = Color(0xFFB3B9C8), fontSize = 34.sp, fontWeight = FontWeight.Black)
-                Text("PLAY", color = Color.White, fontSize = 25.sp, fontWeight = FontWeight.ExtraBold, letterSpacing = 2.sp)
+                Row(verticalAlignment = Alignment.CenterVertically, horizontalArrangement = Arrangement.spacedBy(3.dp)) {
+                    Text("Q", color = Color(0xFFD7DCE5), fontSize = 39.sp, fontWeight = FontWeight.Black)
+                    Text("PLAY", color = Color.White, fontSize = 27.sp, fontWeight = FontWeight.ExtraBold, letterSpacing = 2.sp)
+                }
+                Spacer(Modifier.width(18.dp))
+                Surface(color = Color(0xFF252B36), shape = RoundedCornerShape(50)) {
+                    Text("GAME CENTER", modifier = Modifier.padding(horizontal = 12.dp, vertical = 6.dp), color = Muted, fontSize = 10.sp, fontWeight = FontWeight.Bold, letterSpacing = 1.5.sp)
+                }
                 Spacer(Modifier.weight(1f))
-                Text("CENTRAL DE JOGOS", color = Color(0xFF8995AE), fontSize = 10.sp, fontWeight = FontWeight.Bold, letterSpacing = 1.sp)
+                Text(if (peanuts != null) "PEANUTS CONECTADO" else "PEANUTS NÃO DETECTADO", color = if (peanuts != null) Color(0xFF8FC6A0) else Color(0xFFE2A09A), fontSize = 10.sp, fontWeight = FontWeight.Bold, letterSpacing = 1.sp)
             }
             Spacer(Modifier.height(22.dp))
-            Row(horizontalArrangement = Arrangement.spacedBy(10.dp)) {
-                FilterChip(selected = tab == "Jogos", onClick = { tab = "Jogos" }, label = { Text("Jogos") })
-                FilterChip(selected = tab == "Peanuts", onClick = { tab = "Peanuts" }, label = { Text("Peanuts Native") })
-                FilterChip(selected = tab == "Aplicativos", onClick = { tab = "Aplicativos" }, label = { Text("Aplicativos") })
+            Row(verticalAlignment = Alignment.CenterVertically) {
+                Column(Modifier.weight(1f)) {
+                    Text("SUA BIBLIOTECA", color = Color.White, fontSize = 25.sp, fontWeight = FontWeight.Bold)
+                    Text("Seus jogos em um só lugar", color = Muted, fontSize = 13.sp)
+                }
+                QPlayAction("ESCOLHER PASTA", Icons.Rounded.FolderOpen) { folderPicker.launch(folderUri) }
+                Spacer(Modifier.width(10.dp))
+                QPlayAction("ATUALIZAR", Icons.Rounded.Refresh) { folderUri?.let { folderUri = it } ; apps = installedApps() }
+            }
+            Spacer(Modifier.height(18.dp))
+            Row(horizontalArrangement = Arrangement.spacedBy(8.dp)) {
+                listOf("Biblioteca", "Aplicativos").forEach { item ->
+                    FilterChip(selected = tab == item, onClick = { tab = item }, label = { Text(item) })
+                }
                 Spacer(Modifier.weight(1f))
-                IconButton(onClick = { apps = installedApps(); peanuts = loadPeanutsGames() }) { Icon(Icons.Rounded.Refresh, "Atualizar", tint = Color.White) }
+                Text(if (tab == "Biblioteca") "${games.size} JOGOS" else "${apps.size} APLICATIVOS", color = Muted, fontSize = 10.sp, fontWeight = FontWeight.Bold)
             }
-            Spacer(Modifier.height(12.dp))
-
-            when (tab) {
-                "Jogos" -> {
-                    val games = apps.filter { it.isGame }
-                    Text("JOGOS INSTALADOS", color = Color(0xFF8995AE), fontSize = 11.sp, fontWeight = FontWeight.Bold, letterSpacing = 2.sp)
-                    Spacer(Modifier.height(10.dp))
-                    if (games.isEmpty()) EmptyState("Nenhum jogo identificado pelo Android", "Você pode adicionar jogos do Peanuts na aba correspondente.")
-                    else LazyColumn(verticalArrangement = Arrangement.spacedBy(9.dp)) {
-                        items(games, key = { it.packageName }) { app -> AppRow(app.name, app.packageName) { launchAndroidApp(app.packageName) } }
+            Spacer(Modifier.height(14.dp))
+            if (tab == "Biblioteca") {
+                Row(verticalAlignment = Alignment.CenterVertically, horizontalArrangement = Arrangement.spacedBy(8.dp)) {
+                    Icon(Icons.Rounded.Folder, null, tint = Accent, modifier = Modifier.size(16.dp))
+                    Text(folderUri?.lastPathSegment?.substringAfterLast(':') ?: "Nenhuma pasta selecionada", color = Muted, fontSize = 12.sp, maxLines = 1, overflow = TextOverflow.Ellipsis)
+                    Spacer(Modifier.weight(1f))
+                    Text(scanMessage, color = Muted, fontSize = 11.sp)
+                }
+                Spacer(Modifier.height(14.dp))
+                if (scanning) {
+                    Box(Modifier.fillMaxSize(), contentAlignment = Alignment.Center) { CircularProgressIndicator(color = Accent) }
+                } else if (games.isEmpty()) {
+                    Box(Modifier.fillMaxSize(), contentAlignment = Alignment.Center) {
+                        Column(horizontalAlignment = Alignment.CenterHorizontally, verticalArrangement = Arrangement.spacedBy(12.dp)) {
+                            Icon(Icons.Rounded.SportsEsports, null, tint = Color(0xFF596477), modifier = Modifier.size(58.dp))
+                            Text(if (folderUri == null) "Vamos encontrar seus jogos" else "Sua biblioteca está vazia", color = Color.White, fontSize = 20.sp, fontWeight = FontWeight.Bold)
+                            Text(scanMessage, color = Muted, fontSize = 13.sp)
+                            Button(onClick = { folderPicker.launch(folderUri) }, colors = ButtonDefaults.buttonColors(containerColor = Accent)) {
+                                Icon(Icons.Rounded.FolderOpen, null); Spacer(Modifier.width(8.dp)); Text("Selecionar pasta de jogos")
+                            }
+                        }
+                    }
+                } else {
+                    LazyVerticalGrid(columns = GridCells.Adaptive(minSize = 190.dp), contentPadding = PaddingValues(bottom = 24.dp), horizontalArrangement = Arrangement.spacedBy(14.dp), verticalArrangement = Arrangement.spacedBy(14.dp)) {
+                        items(games, key = { it.uri.toString() }) { game ->
+                            GameTile(game) { launchNup(game) }
+                        }
                     }
                 }
-                "Aplicativos" -> {
-                    Text("APLICATIVOS INICIÁVEIS", color = Color(0xFF8995AE), fontSize = 11.sp, fontWeight = FontWeight.Bold, letterSpacing = 2.sp)
-                    Spacer(Modifier.height(10.dp))
-                    LazyColumn(verticalArrangement = Arrangement.spacedBy(8.dp)) {
-                        items(apps, key = { it.packageName }) { app -> AppRow(app.name, app.packageName) { launchAndroidApp(app.packageName) } }
+            } else {
+                LazyVerticalGrid(columns = GridCells.Adaptive(minSize = 210.dp), horizontalArrangement = Arrangement.spacedBy(12.dp), verticalArrangement = Arrangement.spacedBy(12.dp)) {
+                    items(apps, key = { it.packageName }) { app ->
+                        AppTile(app) { launchAndroidApp(app.packageName) }
                     }
-                }
-                else -> {
-                    Row(verticalAlignment = Alignment.CenterVertically) {
-                        Column(Modifier.weight(1f)) {
-                            Text("PEANUTS NATIVE", color = Color(0xFF8995AE), fontSize = 11.sp, fontWeight = FontWeight.Bold, letterSpacing = 2.sp)
-                            Text(if (detectedPeanuts == null) "Não detectado" else "Conectado: $detectedPeanuts", color = if (detectedPeanuts == null) Color(0xFFFFA0A0) else Color(0xFF9CC9A7), fontSize = 12.sp)
-                        }
-                        Button(onClick = { showAddPeanuts = true }, enabled = detectedPeanuts != null) {
-                            Icon(Icons.Rounded.Add, null); Spacer(Modifier.width(5.dp)); Text("Adicionar jogo")
-                        }
-                    }
-                    Spacer(Modifier.height(12.dp))
-                    if (peanuts.isEmpty()) EmptyState("Sua biblioteca Peanuts está vazia", "Adicione um jogo informando o nome e o Title ID. O QPlay tentará abri-lo pelo Peanuts Native.")
-                    else LazyColumn(verticalArrangement = Arrangement.spacedBy(9.dp)) {
-                        items(peanuts, key = { it.titleId }) {
-                            AppRow(it.name, "TITLE ID: ${it.titleId}") { launchPeanuts(it.titleId) }
-                        }
-                    }
-                    Text("A importação automática da biblioteca interna ainda está em investigação. Esta primeira etapa testa a abertura externa documentada pelo Peanuts.", color = Color(0xFF78849B), fontSize = 10.sp)
                 }
             }
         }
+    }
 
-        if (showAddPeanuts) AlertDialog(
-            onDismissRequest = { showAddPeanuts = false },
-            title = { Text("Adicionar jogo do Peanuts") },
-            text = {
-                Column(verticalArrangement = Arrangement.spacedBy(10.dp)) {
-                    OutlinedTextField(value = gameName, onValueChange = { gameName = it }, label = { Text("Nome do jogo") }, singleLine = true)
-                    OutlinedTextField(value = titleId, onValueChange = { titleId = it.uppercase().filter { c -> c.isLetterOrDigit() } }, label = { Text("Title ID") }, singleLine = true, keyboardOptions = KeyboardOptions(capitalization = KeyboardCapitalization.Characters))
-                    Text("O Title ID identifica o jogo dentro da biblioteca do Peanuts.", color = Color.Gray, fontSize = 11.sp)
+    private fun scanNupFolder(treeUri: Uri): List<NupGame> {
+        val root = DocumentFile.fromTreeUri(this, treeUri) ?: return emptyList()
+        val found = mutableListOf<NupGame>()
+        fun walk(dir: DocumentFile, depth: Int) {
+            if (depth > 8 || found.size >= 500) return
+            dir.listFiles().forEach { file ->
+                if (file.isDirectory) walk(file, depth + 1)
+                else if (file.isFile && file.name?.substringAfterLast('.', "")?.equals("nup", true) == true) {
+                    val filename = file.name ?: "Jogo .nup"
+                    found.add(NupGame(filename.substringBeforeLast('.').replace('_', ' '), file.uri, filename))
                 }
-            },
-            confirmButton = {
-                TextButton(onClick = {
-                    val id = titleId.trim().uppercase()
-                    if (gameName.isNotBlank() && id.isNotBlank()) {
-                        val updated = (peanuts.filterNot { it.titleId == id } + PeanutsGame(gameName.trim(), id))
-                        savePeanutsGames(updated)
-                        peanuts = updated
-                        showAddPeanuts = false
-                        gameName = ""; titleId = ""
-                    }
-                }, enabled = gameName.isNotBlank() && titleId.isNotBlank()) { Text("Salvar") }
-            },
-            dismissButton = { TextButton(onClick = { showAddPeanuts = false }) { Text("Cancelar") } }
-        )
-    }
-
-    private fun loadPeanutsGames(): List<PeanutsGame> {
-        val prefs = getSharedPreferences("qplay_library", MODE_PRIVATE)
-        return prefs.getStringSet("peanuts_entries", emptySet()).orEmpty().mapNotNull { row ->
-            val split = row.split("|", limit = 2)
-            if (split.size == 2) PeanutsGame(split[0], split[1]) else null
-        }.sortedBy { it.name.lowercase() }
-    }
-
-    private fun savePeanutsGames(items: List<PeanutsGame>) {
-        getSharedPreferences("qplay_library", MODE_PRIVATE).edit()
-            .putStringSet("peanuts_entries", items.map { "${it.name}|${it.titleId}" }.toSet()).apply()
-    }
-
-    @Composable private fun AppRow(name: String, detail: String, onClick: () -> Unit) {
-        Row(Modifier.fillMaxWidth().clip(RoundedCornerShape(14.dp)).background(Color(0xFF1D2331)).clickable(onClick = onClick).padding(14.dp), verticalAlignment = Alignment.CenterVertically) {
-            Box(Modifier.size(44.dp).clip(RoundedCornerShape(12.dp)).background(Color(0xFF303B52)), contentAlignment = Alignment.Center) {
-                Text(name.take(1).uppercase(), color = Color.White, fontSize = 20.sp, fontWeight = FontWeight.Bold)
             }
-            Spacer(Modifier.width(13.dp))
-            Column(Modifier.weight(1f)) {
-                Text(name, color = Color.White, fontWeight = FontWeight.Bold, maxLines = 1)
-                Text(detail, color = Color(0xFF8995AE), fontSize = 10.sp, maxLines = 1)
+        }
+        walk(root, 0)
+        return found.sortedBy { it.name.lowercase() }
+    }
+
+    @Composable
+    private fun QPlayAction(label: String, icon: androidx.compose.ui.graphics.vector.ImageVector, onClick: () -> Unit) {
+        var focused by remember { mutableStateOf(false) }
+        Surface(onClick = onClick, color = if (focused) Accent else Panel2, shape = RoundedCornerShape(12.dp), border = if (focused) BorderStroke(2.dp, Color.White) else null, modifier = Modifier.onFocusChanged { focused = it.isFocused }.focusable()) {
+            Row(Modifier.padding(horizontal = 15.dp, vertical = 12.dp), verticalAlignment = Alignment.CenterVertically, horizontalArrangement = Arrangement.spacedBy(8.dp)) {
+                Icon(icon, null, tint = Color.White, modifier = Modifier.size(17.dp))
+                Text(label, color = Color.White, fontSize = 10.sp, fontWeight = FontWeight.Bold, letterSpacing = .5.sp)
             }
-            Icon(Icons.Rounded.PlayArrow, null, tint = Color(0xFFB8C4E0))
         }
     }
 
-    @Composable private fun EmptyState(title: String, message: String) {
-        Column(Modifier.fillMaxWidth().padding(top = 42.dp), horizontalAlignment = Alignment.CenterHorizontally) {
-            Icon(Icons.Rounded.SportsEsports, null, tint = Color(0xFF65718A), modifier = Modifier.size(48.dp))
-            Spacer(Modifier.height(12.dp))
-            Text(title, color = Color.White, fontWeight = FontWeight.Bold)
-            Spacer(Modifier.height(5.dp))
-            Text(message, color = Color(0xFF8995AE), fontSize = 12.sp)
+    @Composable
+    private fun GameTile(game: NupGame, onClick: () -> Unit) {
+        var focused by remember { mutableStateOf(false) }
+        Surface(onClick = onClick, color = if (focused) Color(0xFF303A4B) else Panel, shape = RoundedCornerShape(18.dp), border = if (focused) BorderStroke(2.dp, Accent) else BorderStroke(1.dp, Color(0xFF293140)), modifier = Modifier.fillMaxWidth().height(150.dp).onFocusChanged { focused = it.isFocused }.focusable()) {
+            Column(Modifier.padding(16.dp), verticalArrangement = Arrangement.SpaceBetween) {
+                Box(Modifier.size(43.dp).clip(RoundedCornerShape(12.dp)).background(Color(0xFF303B4D)), contentAlignment = Alignment.Center) {
+                    Icon(Icons.Rounded.SportsEsports, null, tint = Color(0xFFE0E5ED), modifier = Modifier.size(24.dp))
+                }
+                Column(verticalArrangement = Arrangement.spacedBy(4.dp)) {
+                    Text(game.name, color = Color.White, fontSize = 15.sp, fontWeight = FontWeight.Bold, maxLines = 1, overflow = TextOverflow.Ellipsis)
+                    Text(".NUP  •  TOQUE / A PARA ABRIR", color = Muted, fontSize = 9.sp, fontWeight = FontWeight.Bold, letterSpacing = .4.sp)
+                }
+            }
+        }
+    }
+
+    @Composable
+    private fun AppTile(app: InstalledGame, onClick: () -> Unit) {
+        var focused by remember { mutableStateOf(false) }
+        Surface(onClick = onClick, color = if (focused) Color(0xFF303A4B) else Panel, shape = RoundedCornerShape(16.dp), border = if (focused) BorderStroke(2.dp, Accent) else null, modifier = Modifier.height(86.dp).onFocusChanged { focused = it.isFocused }.focusable()) {
+            Row(Modifier.padding(14.dp), verticalAlignment = Alignment.CenterVertically, horizontalArrangement = Arrangement.spacedBy(12.dp)) {
+                Icon(Icons.Rounded.Apps, null, tint = Muted, modifier = Modifier.size(26.dp))
+                Column(Modifier.weight(1f)) {
+                    Text(app.name, color = Color.White, fontWeight = FontWeight.SemiBold, maxLines = 1, overflow = TextOverflow.Ellipsis)
+                    Text(if (app.isGame) "JOGO ANDROID" else "APLICATIVO", color = Muted, fontSize = 9.sp)
+                }
+                Icon(Icons.Rounded.PlayArrow, null, tint = Accent)
+            }
         }
     }
 }
