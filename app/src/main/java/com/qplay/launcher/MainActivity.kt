@@ -216,7 +216,7 @@ class MainActivity : ComponentActivity() {
                         Spacer(Modifier.weight(0.16f))
                         // A single continuous horizontal shelf; side tiles remain visible.
                         LazyRow(
-                            contentPadding = PaddingValues(horizontal = (maxWidth - tileSize) / 2),
+                            contentPadding = PaddingValues(horizontal = (this@BoxWithConstraints.maxWidth - tileSize) / 2),
                             horizontalArrangement = Arrangement.spacedBy((tileSize * 0.075f).coerceAtLeast(10.dp)),
                             verticalAlignment = Alignment.CenterVertically,
                             modifier = Modifier.fillMaxWidth().height(tileSize + 34.dp)
