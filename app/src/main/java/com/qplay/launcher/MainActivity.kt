@@ -225,42 +225,49 @@ class MainActivity : ComponentActivity() {
                         IconButton(onClick = { settingsOpen = true }) {
                             Icon(Icons.Rounded.Settings, "Configurações", tint = Color.White, modifier = Modifier.size(27.dp))
                         }
-                        if (settingsOpen) Dialog(onDismissRequest = { settingsOpen = false }, properties = androidx.compose.ui.window.DialogProperties(usePlatformDefaultWidth = false, decorFitsSystemWindows = false)) {
-                            Surface(color = Bg, modifier = Modifier.fillMaxSize()) {
-                                Column(Modifier.fillMaxSize().padding(horizontal = 24.dp, vertical = 14.dp)) {
-                                    Row(Modifier.fillMaxWidth(), verticalAlignment = Alignment.CenterVertically) {
-                                        Icon(Icons.Rounded.Settings, null, tint = Color(0xFF35BCEB), modifier = Modifier.size(28.dp))
-                                        Spacer(Modifier.width(12.dp))
-                                        Text("CONFIGURAÇÕES DO QPLAY", color = Color.White, fontSize = 22.sp, fontWeight = FontWeight.Bold)
-                                        Spacer(Modifier.weight(1f))
-                                        TextButton(onClick = { settingsOpen = false }) { Text("VOLTAR", color = Color(0xFF35BCEB), fontWeight = FontWeight.Bold) }
+                        if (settingsOpen) Dialog(
+                            onDismissRequest = { settingsOpen = false },
+                            properties = androidx.compose.ui.window.DialogProperties(usePlatformDefaultWidth = false, decorFitsSystemWindows = false)
+                        ) {
+                            BoxWithConstraints(Modifier.fillMaxSize().background(Bg)) {
+                                val compact = maxWidth < 700.dp
+                                val sideWidth = if (compact) 150.dp else (maxWidth * 0.22f).coerceIn(170.dp, 250.dp)
+                                val outerPad = if (compact) 10.dp else 20.dp
+                                Column(Modifier.fillMaxSize().padding(horizontal = outerPad, vertical = if (compact) 8.dp else 12.dp)) {
+                                    Row(Modifier.fillMaxWidth().heightIn(min = 42.dp), verticalAlignment = Alignment.CenterVertically) {
+                                        Icon(Icons.Rounded.Settings, null, tint = Color(0xFF35BCEB), modifier = Modifier.size(if (compact) 22.dp else 28.dp))
+                                        Spacer(Modifier.width(8.dp))
+                                        Text("CONFIGURAÇÕES DO QPLAY", color = Color.White, fontSize = if (compact) 16.sp else 21.sp, fontWeight = FontWeight.Bold, maxLines = 1, overflow = TextOverflow.Ellipsis, modifier = Modifier.weight(1f))
+                                        TextButton(onClick = { settingsOpen = false }, contentPadding = PaddingValues(horizontal = 8.dp, vertical = 4.dp)) { Text("VOLTAR", color = Color(0xFF35BCEB), fontWeight = FontWeight.Bold, fontSize = if (compact) 11.sp else 13.sp) }
                                     }
                                     Divider(color = Color(0xFF777777))
-                                    Row(Modifier.weight(1f).fillMaxWidth().padding(vertical = 12.dp)) {
-                                        Column(Modifier.width(220.dp).fillMaxHeight(), verticalArrangement = Arrangement.spacedBy(5.dp)) {
+                                    Row(Modifier.weight(1f).fillMaxWidth().padding(vertical = 8.dp)) {
+                                        Column(Modifier.width(sideWidth).fillMaxHeight().verticalScroll(rememberScrollState()), verticalArrangement = Arrangement.spacedBy(4.dp)) {
                                             listOf("Perfil", "Aparência", "Biblioteca", "Imagens", "Emuladores", "Controles", "Sistema").forEach { category ->
-                                                Surface(onClick = { settingsCategory = category }, color = if (settingsCategory == category) Color(0xFF252B30) else Color.Transparent, shape = RoundedCornerShape(5.dp), modifier = Modifier.fillMaxWidth()) {
+                                                val active = settingsCategory == category
+                                                Surface(onClick = { settingsCategory = category }, color = if (active) Color(0xFF252B30) else Color.Transparent, shape = RoundedCornerShape(5.dp), modifier = Modifier.fillMaxWidth()) {
                                                     Row(verticalAlignment = Alignment.CenterVertically) {
-                                                        Box(Modifier.width(4.dp).height(44.dp).background(if (settingsCategory == category) Color(0xFF35BCEB) else Color.Transparent))
-                                                        Text(category, color = if (settingsCategory == category) Color(0xFF35BCEB) else Color.White, fontSize = 15.sp, fontWeight = if (settingsCategory == category) FontWeight.Bold else FontWeight.Normal, modifier = Modifier.padding(horizontal = 14.dp, vertical = 12.dp))
+                                                        Box(Modifier.width(4.dp).height(40.dp).background(if (active) Color(0xFF35BCEB) else Color.Transparent))
+                                                        Text(category, color = if (active) Color(0xFF35BCEB) else Color.White, fontSize = if (compact) 12.sp else 14.sp, fontWeight = if (active) FontWeight.Bold else FontWeight.Normal, maxLines = 1, overflow = TextOverflow.Ellipsis, modifier = Modifier.padding(horizontal = 9.dp, vertical = 10.dp))
                                                     }
                                                 }
                                             }
                                         }
+                                        Spacer(Modifier.width(if (compact) 8.dp else 14.dp))
                                         Divider(Modifier.fillMaxHeight().width(1.dp), color = Color(0xFF484848))
-                                        Column(Modifier.weight(1f).fillMaxHeight().verticalScroll(rememberScrollState()).padding(start = 24.dp, end = 12.dp), verticalArrangement = Arrangement.spacedBy(14.dp)) {
-                                            Text(settingsCategory.uppercase(), color = Color.White, fontSize = 21.sp, fontWeight = FontWeight.Bold)
+                                        Column(Modifier.weight(1f).fillMaxHeight().verticalScroll(rememberScrollState()).padding(start = if (compact) 10.dp else 18.dp, end = 4.dp), verticalArrangement = Arrangement.spacedBy(10.dp)) {
+                                            Text(settingsCategory.uppercase(), color = Color.White, fontSize = if (compact) 17.sp else 21.sp, fontWeight = FontWeight.Bold)
                                             when (settingsCategory) {
                                                 "Perfil" -> {
-                                                    Text("Personalize sua identidade no QPlay.", color = Muted)
+                                                    Text("Personalize sua identidade no QPlay.", color = Muted, fontSize = if (compact) 12.sp else 15.sp)
                                                     OutlinedTextField(value = displayName, onValueChange = { displayName = it; prefs.edit().putString("display_name", it).apply() }, label = { Text("Nome do perfil") }, singleLine = true, modifier = Modifier.fillMaxWidth())
-                                                    Text("A foto/avatar pode ser escolhida pelo botão de perfil na tela HOME.", color = Muted, fontSize = 12.sp)
+                                                    Text("A foto/avatar pode ser escolhida pelo botão de perfil na tela HOME.", color = Muted, fontSize = 11.sp)
                                                 }
                                                 "Aparência" -> {
                                                     Text("Escolha uma cor de destaque para a interface.", color = Muted)
-                                                    Row(horizontalArrangement = Arrangement.spacedBy(12.dp)) {
+                                                    Row(horizontalArrangement = Arrangement.spacedBy(8.dp)) {
                                                         listOf(Color(0xFF35BCEB), Color(0xFF8B72E8), Color(0xFF56C58A), Color(0xFFE6A64A), Color(0xFFE45B68)).forEach { c ->
-                                                            Surface(onClick = { prefs.edit().putLong("accent_color", c.value.toLong()).apply() }, color = c, shape = RoundedCornerShape(50), modifier = Modifier.size(38.dp), border = BorderStroke(2.dp, Color.White)) {}
+                                                            Surface(onClick = { prefs.edit().putLong("accent_color", c.value.toLong()).apply() }, color = c, shape = RoundedCornerShape(50), modifier = Modifier.size(if (compact) 30.dp else 38.dp), border = BorderStroke(2.dp, Color.White)) {}
                                                         }
                                                     }
                                                 }
@@ -271,9 +278,8 @@ class MainActivity : ComponentActivity() {
                                                     Button(onClick = { libraryFilter = "Todos"; settingsOpen = false }) { Text("Mostrar todos os jogos") }
                                                 }
                                                 "Imagens" -> {
-                                                    Text("Busca de capas sem chave de API: a integração com os catálogos públicos será conectada ao editor de cada jogo. As fontes Libretro fornecem capas para sistemas retrô, mas não cobrem todos os jogos modernos.", color = Muted)
-                                                    Text("A seleção de plataforma é importante para encontrar a arte correta.", color = Color.White, fontWeight = FontWeight.SemiBold)
-                                                    Text("A pesquisa e a aplicação direta das capas ainda precisam ser concluídas; não vou apresentar esta seção como scraper pronto antes de testar o download e o salvamento local.", color = Color(0xFFFFCC80), fontSize = 12.sp)
+                                                    Text("Busca de capas sem chave de API. A fonte Libretro oferece artes para vários consoles retrô; a disponibilidade varia por plataforma.", color = Muted)
+                                                    Text("Use o editor de cada jogo para pesquisar e aplicar capas.", color = Color.White, fontWeight = FontWeight.SemiBold)
                                                 }
                                                 "Emuladores" -> Text("Detecção e associação de emuladores serão configuradas aqui.", color = Muted)
                                                 "Controles" -> Text("Mapeamento de botões, navegação e atalhos serão configurados aqui.", color = Muted)
@@ -282,7 +288,9 @@ class MainActivity : ComponentActivity() {
                                         }
                                     }
                                     Divider(color = Color(0xFF777777))
-                                    Row(Modifier.fillMaxWidth().padding(top = 8.dp), horizontalArrangement = Arrangement.End) { Text("B  VOLTAR     A  CONFIRMAR", color = Color.White, fontSize = 12.sp, fontWeight = FontWeight.Bold) }
+                                    Row(Modifier.fillMaxWidth().heightIn(min = 28.dp).padding(top = 4.dp), horizontalArrangement = Arrangement.End, verticalAlignment = Alignment.CenterVertically) {
+                                        Text("B  VOLTAR     A  CONFIRMAR", color = Color.White, fontSize = 10.sp, maxLines = 1)
+                                    }
                                 }
                             }
                         }
