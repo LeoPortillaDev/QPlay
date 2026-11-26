@@ -227,12 +227,12 @@ class MainActivity : ComponentActivity() {
                         }
                         if (settingsOpen) Dialog(
                             onDismissRequest = { settingsOpen = false },
-                            properties = androidx.compose.ui.window.DialogProperties(usePlatformDefaultWidth = false, decorFitsSystemWindows = false)
+                            properties = androidx.compose.ui.window.DialogProperties(usePlatformDefaultWidth = false, decorFitsSystemWindows = true)
                         ) {
                             BoxWithConstraints(Modifier.fillMaxSize().background(Bg)) {
-                                val compact = maxWidth < 700.dp
-                                val sideWidth = if (compact) 150.dp else (maxWidth * 0.22f).coerceIn(170.dp, 250.dp)
-                                val outerPad = if (compact) 10.dp else 20.dp
+                                val compact = maxWidth < 820.dp || maxHeight < 460.dp
+                                val sideWidth = if (compact) 132.dp else (maxWidth * 0.22f).coerceIn(180.dp, 230.dp)
+                                val outerPad = if (compact) 8.dp else 16.dp
                                 Column(Modifier.fillMaxSize().padding(horizontal = outerPad, vertical = if (compact) 8.dp else 12.dp)) {
                                     Row(Modifier.fillMaxWidth().heightIn(min = 42.dp), verticalAlignment = Alignment.CenterVertically) {
                                         Icon(Icons.Rounded.Settings, null, tint = Color(0xFF35BCEB), modifier = Modifier.size(if (compact) 22.dp else 28.dp))
@@ -242,13 +242,13 @@ class MainActivity : ComponentActivity() {
                                     }
                                     Divider(color = Color(0xFF777777))
                                     Row(Modifier.weight(1f).fillMaxWidth().padding(vertical = 8.dp)) {
-                                        Column(Modifier.width(sideWidth).fillMaxHeight().verticalScroll(rememberScrollState()), verticalArrangement = Arrangement.spacedBy(4.dp)) {
+                                        Column(Modifier.width(sideWidth).fillMaxHeight(), verticalArrangement = Arrangement.spacedBy(2.dp)) {
                                             listOf("Perfil", "Aparência", "Biblioteca", "Imagens", "Emuladores", "Controles", "Sistema").forEach { category ->
                                                 val active = settingsCategory == category
                                                 Surface(onClick = { settingsCategory = category }, color = if (active) Color(0xFF252B30) else Color.Transparent, shape = RoundedCornerShape(5.dp), modifier = Modifier.fillMaxWidth()) {
                                                     Row(verticalAlignment = Alignment.CenterVertically) {
-                                                        Box(Modifier.width(4.dp).height(40.dp).background(if (active) Color(0xFF35BCEB) else Color.Transparent))
-                                                        Text(category, color = if (active) Color(0xFF35BCEB) else Color.White, fontSize = if (compact) 12.sp else 14.sp, fontWeight = if (active) FontWeight.Bold else FontWeight.Normal, maxLines = 1, overflow = TextOverflow.Ellipsis, modifier = Modifier.padding(horizontal = 9.dp, vertical = 10.dp))
+                                                        Box(Modifier.width(4.dp).height(if (compact) 34.dp else 40.dp).background(if (active) Color(0xFF35BCEB) else Color.Transparent))
+                                                        Text(category, color = if (active) Color(0xFF35BCEB) else Color.White, fontSize = if (compact) 12.sp else 14.sp, fontWeight = if (active) FontWeight.Bold else FontWeight.Normal, maxLines = 1, overflow = TextOverflow.Ellipsis, modifier = Modifier.padding(horizontal = 8.dp, vertical = if (compact) 7.dp else 9.dp))
                                                     }
                                                 }
                                             }
@@ -288,8 +288,10 @@ class MainActivity : ComponentActivity() {
                                         }
                                     }
                                     Divider(color = Color(0xFF777777))
-                                    Row(Modifier.fillMaxWidth().heightIn(min = 28.dp).padding(top = 4.dp), horizontalArrangement = Arrangement.End, verticalAlignment = Alignment.CenterVertically) {
-                                        Text("B  VOLTAR     A  CONFIRMAR", color = Color.White, fontSize = 10.sp, maxLines = 1)
+                                    Row(Modifier.fillMaxWidth().heightIn(min = 30.dp).padding(top = 4.dp), horizontalArrangement = Arrangement.End, verticalAlignment = Alignment.CenterVertically) {
+                                        Text("B  VOLTAR", color = Color.White, fontSize = 10.sp, maxLines = 1)
+                                        Spacer(Modifier.width(18.dp))
+                                        Text("A  CONFIRMAR", color = Color.White, fontSize = 10.sp, maxLines = 1)
                                     }
                                 }
                             }
