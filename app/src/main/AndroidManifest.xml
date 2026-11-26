@@ -9,7 +9,7 @@
         <package android:name="dev.bananative.android" />
         <package android:name="dev.nxnative.android.play" />
     </queries>
-    <application android:icon="@drawable/qplay_logo" android:roundIcon="@drawable/qplay_logo" android:theme="@style/AppTheme" android:label="QPlay" android:allowBackup="true" android:supportsRtl="true">
+    <application android:icon="@mipmap/qplay_launcher" android:roundIcon="@mipmap/qplay_launcher" android:theme="@style/AppTheme" android:label="QPlay" android:allowBackup="true" android:supportsRtl="true">
         <activity android:name=".MainActivity" android:exported="true" android:screenOrientation="sensorLandscape">
             <intent-filter>
                 <action android:name="android.intent.action.MAIN" />
