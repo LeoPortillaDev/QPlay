@@ -252,7 +252,7 @@ class MainActivity : ComponentActivity() {
                                 val compact = maxWidth < 820.dp || maxHeight < 460.dp
                                 val sideWidth = if (compact) 132.dp else (maxWidth * 0.22f).coerceIn(180.dp, 230.dp)
                                 val outerPad = if (compact) 8.dp else 16.dp
-                                Column(Modifier.fillMaxWidth(0.92f).fillMaxHeight(0.88f).align(Alignment.Center).background(Bg, RoundedCornerShape(16.dp)).padding(horizontal = outerPad, vertical = if (compact) 8.dp else 12.dp)) {
+                                Column(Modifier.fillMaxSize().background(Bg).padding(horizontal = outerPad, vertical = if (compact) 8.dp else 12.dp)) {
                                     Row(Modifier.fillMaxWidth().heightIn(min = 42.dp), verticalAlignment = Alignment.CenterVertically) {
                                         Icon(Icons.Rounded.Settings, null, tint = Color(0xFF35BCEB), modifier = Modifier.size(if (compact) 22.dp else 28.dp))
                                         Spacer(Modifier.width(8.dp))
@@ -337,7 +337,7 @@ class MainActivity : ComponentActivity() {
                     } else {
                         var focusedGameName by remember { mutableStateOf(games.firstOrNull()?.name ?: libraryApps.firstOrNull()?.name.orEmpty()) }
                         Spacer(Modifier.weight(1f))
-                        Text(focusedGameName.uppercase(), color = Color(0xFF35BCEB), fontSize = 25.sp, fontWeight = FontWeight.Medium, letterSpacing = 1.2.sp, maxLines = 1, overflow = TextOverflow.Ellipsis, textAlign = TextAlign.Center, modifier = Modifier.fillMaxWidth())
+                        Text(focusedGameName.uppercase(), color = Color(0xFF35BCEB), fontSize = 19.sp, fontWeight = FontWeight.Medium, letterSpacing = 1.0.sp, maxLines = 1, overflow = TextOverflow.Ellipsis, textAlign = TextAlign.Start, modifier = Modifier.fillMaxWidth().padding(start = shelfSidePadding))
                         Spacer(Modifier.height(16.dp))
                         // Center a short shelf with equal margins; keep a small inset when it scrolls.
                         val shelfWidth = this@BoxWithConstraints.maxWidth * 0.95f
@@ -451,7 +451,7 @@ class MainActivity : ComponentActivity() {
                     color = Color(0xFF202020),
                     shape = RoundedCornerShape(18.dp),
                     border = BorderStroke(2.dp, Color(0xFF35BCEB)),
-                    modifier = Modifier.fillMaxWidth(0.92f).fillMaxHeight(0.88f)
+                    modifier = Modifier.fillMaxSize()
                 ) {
                     Column(Modifier.fillMaxSize().padding(if (compact) 12.dp else 20.dp)) {
                         Row(Modifier.fillMaxWidth(), verticalAlignment = Alignment.CenterVertically) {
@@ -465,7 +465,7 @@ class MainActivity : ComponentActivity() {
                         }
                         Divider(color = Color(0xFF555555), modifier = Modifier.padding(top = 8.dp, bottom = 12.dp))
                         Row(Modifier.weight(1f).fillMaxWidth(), horizontalArrangement = Arrangement.spacedBy(14.dp)) {
-                            Column(Modifier.fillMaxHeight().fillMaxWidth(if (compact) 0.38f else 0.31f), verticalArrangement = Arrangement.spacedBy(10.dp)) {
+                            Column(Modifier.fillMaxHeight().fillMaxWidth(if (compact) 0.38f else 0.31f).verticalScroll(rememberScrollState()), verticalArrangement = Arrangement.spacedBy(10.dp)) {
                                 Text("JOGO", color = Color.White, fontSize = 11.sp, fontWeight = FontWeight.Bold, letterSpacing = 1.sp)
                                 OutlinedTextField(
                                     value = scraperQuery,
@@ -690,7 +690,7 @@ class MainActivity : ComponentActivity() {
                     color = Color(0xFF202020),
                     shape = RoundedCornerShape(18.dp),
                     border = BorderStroke(2.dp, Color(0xFF35BCEB)),
-                    modifier = Modifier.fillMaxWidth(0.92f).fillMaxHeight(0.88f)
+                    modifier = Modifier.fillMaxSize()
                 ) {
                     Column(Modifier.fillMaxSize().padding(if (compactEdit) 12.dp else 20.dp)) {
                         Row(Modifier.fillMaxWidth(), verticalAlignment = Alignment.CenterVertically) {
