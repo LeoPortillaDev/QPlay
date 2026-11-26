@@ -148,6 +148,25 @@ class MainActivity : ComponentActivity() {
         var groupMap by remember { mutableStateOf(prefs.all.filterKeys { it.startsWith("group_") }.mapKeys { it.key.removePrefix("group_") }.mapValues { it.value as? String ?: "" }) }
         var libraryFilter by remember { mutableStateOf("Todos") }
         var settingsCategory by remember { mutableStateOf("Perfil") }
+        var avatarUri by remember { mutableStateOf(prefs.getString("profile_avatar_uri", null)?.let(Uri::parse)) }
+        val avatarPicker = rememberLauncherForActivityResult(ActivityResultContracts.OpenDocument()) { uri ->
+            if (uri != null) {
+                try {
+                    contentResolver.takePersistableUriPermission(uri, Intent.FLAG_GRANT_READ_URI_PERMISSION)
+                    avatarUri = uri
+                    prefs.edit().putString("profile_avatar_uri", uri.toString()).apply()
+                } catch (_: SecurityException) {
+                    android.widget.Toast.makeText(this, "Não foi possível guardar esta foto.", android.widget.Toast.LENGTH_SHORT).show()
+                }
+            }
+        }
+        val avatarBitmap = produceState<ImageBitmap?>(null, avatarUri) {
+            value = withContext(Dispatchers.IO) {
+                try {
+                    avatarUri?.let { uri -> contentResolver.openInputStream(uri)?.use { BitmapFactory.decodeStream(it) }?.asImageBitmap() }
+                } catch (_: Exception) { null }
+            }
+        }
 
         val folderPicker = rememberLauncherForActivityResult(ActivityResultContracts.OpenDocumentTree()) { uri ->
             if (uri != null) {
@@ -211,11 +230,30 @@ class MainActivity : ComponentActivity() {
             Column(Modifier.fillMaxSize().background(Bg).padding(horizontal = maxWidth * 0.025f, vertical = maxHeight * 0.025f)) {
                 // Top system strip: discreet brand, status and settings.
                 Row(Modifier.fillMaxWidth(), verticalAlignment = Alignment.CenterVertically) {
-                    androidx.compose.foundation.Image(
-                        painterResource(com.qplay.launcher.R.drawable.qplay_logo),
-                        contentDescription = "QPlay",
-                        modifier = Modifier.size(42.dp)
-                    )
+                    Surface(
+                        onClick = { avatarPicker.launch(arrayOf("image/*")) },
+                        color = Color(0xFF171923),
+                        shape = RoundedCornerShape(12.dp),
+                        border = BorderStroke(1.dp, Color(0xFF35BCEB)),
+                        modifier = Modifier.size(48.dp)
+                    ) {
+                        Box(contentAlignment = Alignment.Center) {
+                            if (avatarBitmap.value != null) {
+                                androidx.compose.foundation.Image(
+                                    bitmap = avatarBitmap.value!!,
+                                    contentDescription = "Avatar do perfil",
+                                    contentScale = ContentScale.Crop,
+                                    modifier = Modifier.fillMaxSize().clip(RoundedCornerShape(11.dp))
+                                )
+                            } else {
+                                androidx.compose.foundation.Image(
+                                    painterResource(com.qplay.launcher.R.drawable.qplay_logo),
+                                    contentDescription = "QPlay",
+                                    modifier = Modifier.size(42.dp)
+                                )
+                            }
+                        }
+                    }
                     Spacer(Modifier.width(12.dp))
                     val greeting = when (LocalTime.now().hour) { in 5..11 -> "Bom dia"; in 12..17 -> "Boa tarde"; else -> "Boa noite" }
                     Text(if (displayName.isBlank()) greeting else "$greeting, $displayName", color = Color.White, fontSize = 18.sp, fontWeight = FontWeight.SemiBold)
@@ -291,7 +329,31 @@ class MainActivity : ComponentActivity() {
                                                 "Perfil" -> {
                                                     Text("Personalize sua identidade no QPlay.", color = Muted, fontSize = if (compact) 12.sp else 15.sp)
                                                     OutlinedTextField(value = displayName, onValueChange = { displayName = it; prefs.edit().putString("display_name", it).apply() }, label = { Text("Nome do perfil") }, singleLine = true, modifier = Modifier.fillMaxWidth())
-                                                    Text("A foto/avatar pode ser escolhida pelo botão de perfil na tela HOME.", color = Muted, fontSize = 11.sp)
+                                                    Row(verticalAlignment = Alignment.CenterVertically, horizontalArrangement = Arrangement.spacedBy(12.dp)) {
+                                                        Surface(
+                                                            onClick = { avatarPicker.launch(arrayOf("image/*")) },
+                                                            color = Color(0xFF171923),
+                                                            shape = RoundedCornerShape(50),
+                                                            border = BorderStroke(2.dp, Color(0xFF35BCEB)),
+                                                            modifier = Modifier.size(64.dp)
+                                                        ) {
+                                                            Box(contentAlignment = Alignment.Center) {
+                                                                if (avatarBitmap.value != null) {
+                                                                    androidx.compose.foundation.Image(bitmap = avatarBitmap.value!!, contentDescription = "Avatar escolhido", contentScale = ContentScale.Crop, modifier = Modifier.fillMaxSize().clip(RoundedCornerShape(50)))
+                                                                } else {
+                                                                    Icon(Icons.Rounded.Person, null, tint = Color(0xFF35BCEB), modifier = Modifier.size(34.dp))
+                                                                }
+                                                            }
+                                                        }
+                                                        Column(Modifier.weight(1f), verticalArrangement = Arrangement.spacedBy(4.dp)) {
+                                                            Text("FOTO DE PERFIL", color = Color.White, fontWeight = FontWeight.Bold, fontSize = 11.sp)
+                                                            Text("Toque para escolher uma imagem da galeria. Ela substituirá o ícone do QPlay.", color = Muted, fontSize = 11.sp)
+                                                            Row(horizontalArrangement = Arrangement.spacedBy(8.dp)) {
+                                                                TextButton(onClick = { avatarPicker.launch(arrayOf("image/*")) }) { Text("ESCOLHER FOTO", color = Color(0xFF35BCEB)) }
+                                                                if (avatarUri != null) TextButton(onClick = { avatarUri = null; prefs.edit().remove("profile_avatar_uri").apply() }) { Text("REMOVER", color = Color(0xFFE45B68)) }
+                                                            }
+                                                        }
+                                                    }
                                                 }
                                                 "Aparência" -> {
                                                     Text("Escolha uma cor de destaque para a interface.", color = Muted)
