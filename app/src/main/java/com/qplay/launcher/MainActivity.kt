@@ -34,6 +34,8 @@ import androidx.compose.material.icons.Icons
 import androidx.compose.material.icons.rounded.*
 import androidx.compose.material3.*
 import androidx.compose.ui.window.Dialog
+import androidx.compose.ui.window.DialogWindowProvider
+import androidx.compose.ui.platform.LocalView
 import androidx.compose.runtime.*
 import androidx.compose.animation.core.animateFloatAsState
 import androidx.compose.ui.graphics.graphicsLayer
@@ -215,7 +217,6 @@ class MainActivity : ComponentActivity() {
                         modifier = Modifier.size(42.dp)
                     )
                     Spacer(Modifier.width(12.dp))
-                    Spacer(Modifier.width(12.dp))
                     val greeting = when (LocalTime.now().hour) { in 5..11 -> "Bom dia"; in 12..17 -> "Boa tarde"; else -> "Boa noite" }
                     Text(if (displayName.isBlank()) greeting else "$greeting, $displayName", color = Color.White, fontSize = 18.sp, fontWeight = FontWeight.SemiBold)
                     Spacer(Modifier.weight(1f))
@@ -230,6 +231,23 @@ class MainActivity : ComponentActivity() {
                             onDismissRequest = { settingsOpen = false },
                             properties = androidx.compose.ui.window.DialogProperties(usePlatformDefaultWidth = false, decorFitsSystemWindows = false)
                         ) {
+                            val dialogView = LocalView.current
+                            DisposableEffect(dialogView) {
+                                val dialogWindow = (dialogView.parent as? DialogWindowProvider)?.window
+                                val decorView = dialogWindow?.decorView
+                                val previousSystemUiVisibility = decorView?.systemUiVisibility
+                                if (decorView != null) {
+                                    decorView.systemUiVisibility = (previousSystemUiVisibility ?: 0) or
+                                        android.view.View.SYSTEM_UI_FLAG_FULLSCREEN or
+                                        android.view.View.SYSTEM_UI_FLAG_HIDE_NAVIGATION or
+                                        android.view.View.SYSTEM_UI_FLAG_IMMERSIVE_STICKY
+                                }
+                                onDispose {
+                                    if (decorView != null && previousSystemUiVisibility != null) {
+                                        decorView.systemUiVisibility = previousSystemUiVisibility
+                                    }
+                                }
+                            }
                             BoxWithConstraints(Modifier.fillMaxSize().background(Bg)) {
                                 val compact = maxWidth < 820.dp || maxHeight < 460.dp
                                 val sideWidth = if (compact) 132.dp else (maxWidth * 0.22f).coerceIn(180.dp, 230.dp)
@@ -279,8 +297,8 @@ class MainActivity : ComponentActivity() {
                                                     Button(onClick = { libraryFilter = "Todos"; settingsOpen = false }) { Text("Mostrar todos os jogos") }
                                                 }
                                                 "Imagens" -> {
-                                                    Text("Busca de capas sem chave de API. A fonte Libretro oferece artes para vários consoles retrô; a disponibilidade varia por plataforma.", color = Muted)
-                                                    Text("Use o editor de cada jogo para pesquisar e aplicar capas.", color = Color.White, fontWeight = FontWeight.SemiBold)
+                                                    Text("Nintendo Switch usa ícones da eShop. Consoles retrô usam capas do catálogo Libretro.", color = Muted)
+                                                    Text("Use o editor de cada jogo para pesquisar e aplicar imagens.", color = Color.White, fontWeight = FontWeight.SemiBold)
                                                 }
                                                 "Emuladores" -> Text("Detecção e associação de emuladores serão configuradas aqui.", color = Muted)
                                                 "Controles" -> Text("Mapeamento de botões, navegação e atalhos serão configurados aqui.", color = Muted)
@@ -318,14 +336,17 @@ class MainActivity : ComponentActivity() {
                         }
                     } else {
                         var focusedGameName by remember { mutableStateOf(games.firstOrNull()?.name ?: libraryApps.firstOrNull()?.name.orEmpty()) }
-                        Spacer(Modifier.weight(0.35f))
+                        Spacer(Modifier.weight(1f))
                         Text(focusedGameName.uppercase(), color = Color(0xFF35BCEB), fontSize = 25.sp, fontWeight = FontWeight.Medium, letterSpacing = 1.2.sp, maxLines = 1, overflow = TextOverflow.Ellipsis, textAlign = TextAlign.Center, modifier = Modifier.fillMaxWidth())
-                        Spacer(Modifier.weight(0.18f))
-                        // A single continuous horizontal shelf; side tiles remain visible.
-                        val shelfSidePadding = this@BoxWithConstraints.maxWidth * 0.045f
+                        Spacer(Modifier.height(16.dp))
+                        // Center a short shelf with equal margins; keep a small inset when it scrolls.
+                        val shelfWidth = this@BoxWithConstraints.maxWidth * 0.95f
+                        val shelfSpacing = (tileSize * 0.055f).coerceAtLeast(8.dp)
+                        val shelfContentWidth = tileSize * totalItems.toFloat() + shelfSpacing * (totalItems - 1).toFloat()
+                        val shelfSidePadding = if (shelfContentWidth <= shelfWidth) (shelfWidth - shelfContentWidth) / 2f else shelfWidth * 0.045f
                         LazyRow(
                             contentPadding = PaddingValues(horizontal = shelfSidePadding),
-                            horizontalArrangement = Arrangement.spacedBy((tileSize * 0.055f).coerceAtLeast(8.dp)),
+                            horizontalArrangement = Arrangement.spacedBy(shelfSpacing),
                             verticalAlignment = Alignment.CenterVertically,
                             modifier = Modifier.fillMaxWidth().height(tileSize + 42.dp).padding(vertical = 4.dp)
                         ) {
@@ -458,10 +479,10 @@ class MainActivity : ComponentActivity() {
                                 var systemMenu by remember { mutableStateOf(false) }
                                 Box {
                                     OutlinedButton(onClick = { systemMenu = true }, modifier = Modifier.fillMaxWidth()) {
-                                        Text(if (scraperSystem.isBlank()) "Selecionar console ▾" else scraperSystem.replace("_", " "), color = Color.White, maxLines = 1, overflow = TextOverflow.Ellipsis)
+                                        Text(if (scraperSystem.isBlank()) "Selecionar console ▾" else if (scraperSystem == "Nintendo_Switch") "Nintendo Switch (eShop)" else scraperSystem.replace("_", " "), color = Color.White, maxLines = 1, overflow = TextOverflow.Ellipsis)
                                     }
                                     DropdownMenu(expanded = systemMenu, onDismissRequest = { systemMenu = false }) {
-                                        DropdownMenuItem(text = { Text("Nintendo Switch — não disponível no Libretro") }, enabled = false, onClick = {})
+                                        DropdownMenuItem(text = { Text("Nintendo Switch (eShop)") }, onClick = { scraperSystem = "Nintendo_Switch"; systemMenu = false })
                                         listOf(
                                             "Nintendo_-_Nintendo_64", "Nintendo_-_Game_Boy_Advance",
                                             "Nintendo_-_Nintendo_Entertainment_System", "Nintendo_-_Super_Nintendo_Entertainment_System",
@@ -482,6 +503,9 @@ class MainActivity : ComponentActivity() {
                                         scraperScope.launch {
                                             try {
                                                 val matches = withContext(Dispatchers.IO) {
+                                                    if (scraperSystem == "Nintendo_Switch") {
+                                                        searchSwitchCovers(scraperQuery)
+                                                    } else {
                                                     val base = "https://api.github.com/repos/libretro-thumbnails/" + scraperSystem
                                                     fun getJson(url: String): String {
                                                         val conn = URL(url).openConnection() as HttpURLConnection
@@ -554,6 +578,7 @@ class MainActivity : ComponentActivity() {
                                                         compareByDescending<Triple<Int, String, String>> { it.first }
                                                             .thenBy { it.second.length }
                                                     ).take(40).map { it.second to it.third }
+                                                    }
                                                 }
                                                 scraperResults = matches
                                                 scraperStatus = if (matches.isEmpty()) "Nenhuma capa correspondente neste console. Confira o nome e a plataforma selecionada." else "${matches.size} capas encontradas."
@@ -567,7 +592,7 @@ class MainActivity : ComponentActivity() {
                                     },
                                     modifier = Modifier.fillMaxWidth(),
                                     colors = ButtonDefaults.buttonColors(containerColor = Color(0xFF35BCEB))
-                                ) { Text(if (scraperBusy) "PESQUISANDO…" else "PESQUISAR CAPAS", color = Color(0xFF101820), fontWeight = FontWeight.Bold) }
+                                ) { Text(if (scraperBusy) "PESQUISANDO…" else if (scraperSystem == "Nintendo_Switch") "BUSCAR ÍCONES" else "PESQUISAR CAPAS", color = Color(0xFF101820), fontWeight = FontWeight.Bold) }
                                 Text(scraperStatus, color = if (scraperStatus.startsWith("Não") || scraperStatus.startsWith("Nenhuma")) Color(0xFFFFC078) else Muted, fontSize = 10.sp)
                             }
                             Divider(Modifier.fillMaxHeight().width(1.dp), color = Color(0xFF484848))
@@ -621,7 +646,7 @@ class MainActivity : ComponentActivity() {
                                                             coverUri = localUri
                                                             prefs.edit().putString("cover_" + key, localUri.toString()).apply()
                                                             scraperOpen = false
-                                                            android.widget.Toast.makeText(this@MainActivity, "Capa aplicada ao jogo!", android.widget.Toast.LENGTH_SHORT).show()
+                                                            android.widget.Toast.makeText(this@MainActivity, if (scraperSystem == "Nintendo_Switch") "Ícone aplicado ao jogo!" else "Capa aplicada ao jogo!", android.widget.Toast.LENGTH_SHORT).show()
                                                         } catch (_: Exception) { scraperStatus = "Não foi possível baixar esta imagem." }
                                                         scraperBusy = false
                                                     }
@@ -631,12 +656,12 @@ class MainActivity : ComponentActivity() {
                                                 border = BorderStroke(1.dp, Color(0xFF454545))
                                             ) {
                                                 Column(Modifier.padding(6.dp), verticalArrangement = Arrangement.spacedBy(5.dp)) {
-                                                    Box(Modifier.fillMaxWidth().aspectRatio(0.72f).clip(RoundedCornerShape(5.dp)).background(Color(0xFF171717)), contentAlignment = Alignment.Center) {
-                                                        if (preview.value != null) androidx.compose.foundation.Image(bitmap = preview.value!!, contentDescription = result.first, contentScale = ContentScale.Crop, modifier = Modifier.fillMaxSize())
+                                                    Box(Modifier.fillMaxWidth().aspectRatio(if (scraperSystem == "Nintendo_Switch") 1f else 0.72f).clip(RoundedCornerShape(5.dp)).background(Color(0xFF171717)), contentAlignment = Alignment.Center) {
+                                                        if (preview.value != null) androidx.compose.foundation.Image(bitmap = preview.value!!, contentDescription = result.first, contentScale = if (scraperSystem == "Nintendo_Switch") ContentScale.Fit else ContentScale.Crop, modifier = Modifier.fillMaxSize())
                                                         else Icon(Icons.Rounded.SportsEsports, null, tint = Muted, modifier = Modifier.size(28.dp))
                                                     }
                                                     Text(result.first.substringBeforeLast("."), color = Color.White, fontSize = 9.sp, maxLines = 2, overflow = TextOverflow.Ellipsis)
-                                                    Text("APLICAR CAPA", color = Color(0xFF35BCEB), fontSize = 9.sp, fontWeight = FontWeight.Bold)
+                                                    Text(if (scraperSystem == "Nintendo_Switch") "APLICAR ÍCONE" else "APLICAR CAPA", color = Color(0xFF35BCEB), fontSize = 9.sp, fontWeight = FontWeight.Bold)
                                                 }
                                             }
                                         }
@@ -739,6 +764,66 @@ class MainActivity : ComponentActivity() {
                 Checkbox(checked = selected, onCheckedChange = { onToggle() }, colors = CheckboxDefaults.colors(checkedColor = Color(0xFF78B58A)))
             }
         }
+    }
+
+    private fun searchSwitchCovers(queryText: String): List<Pair<String, String>> {
+        val cacheFile = File(cacheDir, "switch-cover-catalog.json")
+        fun downloadCatalog(): String {
+            val connection = URL("https://raw.githubusercontent.com/Marxally/switchicons/main/data.json")
+                .openConnection() as HttpURLConnection
+            connection.connectTimeout = 15000
+            connection.readTimeout = 45000
+            connection.setRequestProperty("User-Agent", "QPlay-Android")
+            try {
+                val code = connection.responseCode
+                if (code !in 200..299) throw IllegalStateException("HTTP $code")
+                val json = connection.inputStream.bufferedReader().use { it.readText() }
+                cacheFile.writeText(json)
+                return json
+            } finally {
+                connection.disconnect()
+            }
+        }
+
+        val catalogJson = if (cacheFile.exists() && cacheFile.length() > 0L) {
+            if (System.currentTimeMillis() - cacheFile.lastModified() < 24 * 60 * 60 * 1000L) {
+                cacheFile.readText()
+            } else {
+                try { downloadCatalog() } catch (_: Exception) { cacheFile.readText() }
+            }
+        } else {
+            downloadCatalog()
+        }
+
+        fun normalize(value: String): String = java.text.Normalizer.normalize(value.lowercase(), java.text.Normalizer.Form.NFD)
+            .replace(Regex("\\p{M}+"), "")
+            .replace(Regex("[™®©]"), "")
+            .replace(Regex("[^a-z0-9]+"), " ").trim()
+
+        val query = normalize(queryText)
+        val words = query.split(Regex("\\s+")).filter { it.length > 1 }
+        val entries = org.json.JSONObject(catalogJson).optJSONArray("games") ?: return emptyList()
+        val prefix = "https://img-eshop.cdn.nintendo.net/i/"
+        return (0 until entries.length()).mapNotNull { index ->
+            val item = entries.optJSONArray(index) ?: return@mapNotNull null
+            val name = item.optString(1).takeIf { it.isNotBlank() } ?: return@mapNotNull null
+            val iconRef = item.optString(2).takeIf { it.isNotBlank() } ?: return@mapNotNull null
+            val normalizedName = normalize(name)
+            val nameWords = normalizedName.split(Regex("\\s+")).filter { it.isNotBlank() }
+            val matched = words.count { word -> nameWords.any { it == word || it.startsWith(word) } }
+            val score = when {
+                normalizedName == query -> 1000
+                normalizedName.startsWith(query) && query.isNotBlank() -> 800 + matched
+                normalizedName.contains(query) && query.isNotBlank() -> 600 + matched
+                matched > 0 -> matched * 10
+                else -> 0
+            }
+            if (score == 0) null else {
+                val iconUrl = if (iconRef.startsWith("http", true)) iconRef else prefix + iconRef + ".jpg"
+                Triple(score, name, iconUrl)
+            }
+        }.sortedWith(compareByDescending<Triple<Int, String, String>> { it.first }.thenBy { it.second.length })
+            .take(40).map { it.second to it.third }
     }
 
     private fun scanNupFolder(treeUri: Uri): List<NupGame> {
