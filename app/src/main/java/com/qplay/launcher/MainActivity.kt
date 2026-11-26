@@ -22,6 +22,8 @@ import androidx.compose.foundation.combinedClickable
 import androidx.compose.foundation.ExperimentalFoundationApi
 import androidx.compose.foundation.focusable
 import androidx.compose.foundation.layout.*
+import androidx.compose.foundation.rememberScrollState
+import androidx.compose.foundation.verticalScroll
 import androidx.compose.foundation.lazy.grid.GridCells
 import androidx.compose.foundation.lazy.grid.LazyVerticalGrid
 import androidx.compose.foundation.lazy.grid.items
@@ -136,6 +138,7 @@ class MainActivity : ComponentActivity() {
         var favoriteKeys by remember { mutableStateOf(prefs.getStringSet("favorites", emptySet()).orEmpty()) }
         var groupMap by remember { mutableStateOf(prefs.all.filterKeys { it.startsWith("group_") }.mapKeys { it.key.removePrefix("group_") }.mapValues { it.value as? String ?: "" }) }
         var libraryFilter by remember { mutableStateOf("Todos") }
+        var settingsCategory by remember { mutableStateOf("Perfil") }
 
         val folderPicker = rememberLauncherForActivityResult(ActivityResultContracts.OpenDocumentTree()) { uri ->
             if (uri != null) {
@@ -216,32 +219,64 @@ class MainActivity : ComponentActivity() {
                         IconButton(onClick = { settingsOpen = true }) {
                             Icon(Icons.Rounded.Settings, "Configurações", tint = Color.White, modifier = Modifier.size(27.dp))
                         }
-                        if (settingsOpen) Dialog(onDismissRequest = { settingsOpen = false }) {
-                            Surface(color = Color(0xFF202020), shape = RoundedCornerShape(22.dp), border = BorderStroke(2.dp, Color(0xFF35BCEB)), modifier = Modifier.fillMaxWidth()) {
-                                Column(Modifier.padding(22.dp), verticalArrangement = Arrangement.spacedBy(10.dp)) {
-                                    Text("CENTRAL DE OPÇÕES", color = Color(0xFF35BCEB), fontSize = 19.sp, fontWeight = FontWeight.ExtraBold, letterSpacing = 1.1.sp)
-                                    Text("Personalize sua biblioteca", color = Muted, fontSize = 12.sp)
-                                    Spacer(Modifier.height(4.dp))
-                                    @Composable fun option(label: String, detail: String, icon: androidx.compose.ui.graphics.vector.ImageVector, action: () -> Unit) {
-                                        Surface(onClick = action, color = Color(0xFF2D2D2D), shape = RoundedCornerShape(12.dp), border = BorderStroke(1.dp, Color(0xFF454545)), modifier = Modifier.fillMaxWidth()) {
-                                            Row(Modifier.padding(horizontal = 14.dp, vertical = 13.dp), verticalAlignment = Alignment.CenterVertically, horizontalArrangement = Arrangement.spacedBy(13.dp)) {
-                                                Icon(icon, null, tint = Color(0xFF35BCEB), modifier = Modifier.size(23.dp))
-                                                Column(Modifier.weight(1f)) {
-                                                    Text(label, color = Color.White, fontWeight = FontWeight.SemiBold, fontSize = 14.sp)
-                                                    Text(detail, color = Muted, fontSize = 10.sp)
+                        if (settingsOpen) Dialog(onDismissRequest = { settingsOpen = false }, properties = androidx.compose.ui.window.DialogProperties(usePlatformDefaultWidth = false, decorFitsSystemWindows = false)) {
+                            Surface(color = Bg, modifier = Modifier.fillMaxSize()) {
+                                Column(Modifier.fillMaxSize().padding(horizontal = 24.dp, vertical = 14.dp)) {
+                                    Row(Modifier.fillMaxWidth(), verticalAlignment = Alignment.CenterVertically) {
+                                        Icon(Icons.Rounded.Settings, null, tint = Color(0xFF35BCEB), modifier = Modifier.size(28.dp))
+                                        Spacer(Modifier.width(12.dp))
+                                        Text("CONFIGURAÇÕES DO QPLAY", color = Color.White, fontSize = 22.sp, fontWeight = FontWeight.Bold)
+                                        Spacer(Modifier.weight(1f))
+                                        TextButton(onClick = { settingsOpen = false }) { Text("VOLTAR", color = Color(0xFF35BCEB), fontWeight = FontWeight.Bold) }
+                                    }
+                                    Divider(color = Color(0xFF777777))
+                                    Row(Modifier.weight(1f).fillMaxWidth().padding(vertical = 12.dp)) {
+                                        Column(Modifier.width(220.dp).fillMaxHeight(), verticalArrangement = Arrangement.spacedBy(5.dp)) {
+                                            listOf("Perfil", "Aparência", "Biblioteca", "Imagens", "Emuladores", "Controles", "Sistema").forEach { category ->
+                                                Surface(onClick = { settingsCategory = category }, color = if (settingsCategory == category) Color(0xFF252B30) else Color.Transparent, shape = RoundedCornerShape(5.dp), modifier = Modifier.fillMaxWidth()) {
+                                                    Row(verticalAlignment = Alignment.CenterVertically) {
+                                                        Box(Modifier.width(4.dp).height(44.dp).background(if (settingsCategory == category) Color(0xFF35BCEB) else Color.Transparent))
+                                                        Text(category, color = if (settingsCategory == category) Color(0xFF35BCEB) else Color.White, fontSize = 15.sp, fontWeight = if (settingsCategory == category) FontWeight.Bold else FontWeight.Normal, modifier = Modifier.padding(horizontal = 14.dp, vertical = 12.dp))
+                                                    }
                                                 }
-                                                Icon(Icons.Rounded.ChevronRight, null, tint = Muted)
+                                            }
+                                        }
+                                        Divider(Modifier.fillMaxHeight().width(1.dp), color = Color(0xFF484848))
+                                        Column(Modifier.weight(1f).fillMaxHeight().verticalScroll(rememberScrollState()).padding(start = 24.dp, end = 12.dp), verticalArrangement = Arrangement.spacedBy(14.dp)) {
+                                            Text(settingsCategory.uppercase(), color = Color.White, fontSize = 21.sp, fontWeight = FontWeight.Bold)
+                                            when (settingsCategory) {
+                                                "Perfil" -> {
+                                                    Text("Personalize sua identidade no QPlay.", color = Muted)
+                                                    OutlinedTextField(value = displayName, onValueChange = { displayName = it; prefs.edit().putString("display_name", it).apply() }, label = { Text("Nome do perfil") }, singleLine = true, modifier = Modifier.fillMaxWidth())
+                                                    Text("A foto/avatar pode ser escolhida pelo botão de perfil na tela HOME.", color = Muted, fontSize = 12.sp)
+                                                }
+                                                "Aparência" -> {
+                                                    Text("Escolha uma cor de destaque para a interface.", color = Muted)
+                                                    Row(horizontalArrangement = Arrangement.spacedBy(12.dp)) {
+                                                        listOf(Color(0xFF35BCEB), Color(0xFF8B72E8), Color(0xFF56C58A), Color(0xFFE6A64A), Color(0xFFE45B68)).forEach { c ->
+                                                            Surface(onClick = { prefs.edit().putLong("accent_color", c.value.toLong()).apply() }, color = c, shape = RoundedCornerShape(50), modifier = Modifier.size(38.dp), border = BorderStroke(2.dp, Color.White)) {}
+                                                        }
+                                                    }
+                                                }
+                                                "Biblioteca" -> {
+                                                    Text("Gerencie as fontes da sua biblioteca.", color = Muted)
+                                                    Button(onClick = { settingsOpen = false; folderPicker.launch(folderUri) }) { Icon(Icons.Rounded.FolderOpen, null); Spacer(Modifier.width(8.dp)); Text("Selecionar pasta de jogos") }
+                                                    Button(onClick = { settingsOpen = false; tab = "Aplicativos" }) { Icon(Icons.Rounded.Apps, null); Spacer(Modifier.width(8.dp)); Text("Escolher aplicativos") }
+                                                    Button(onClick = { libraryFilter = "Todos"; settingsOpen = false }) { Text("Mostrar todos os jogos") }
+                                                }
+                                                "Imagens" -> {
+                                                    Text("Busca de capas sem chave de API: a integração com os catálogos públicos será conectada ao editor de cada jogo. As fontes Libretro fornecem capas para sistemas retrô, mas não cobrem todos os jogos modernos.", color = Muted)
+                                                    Text("A seleção de plataforma é importante para encontrar a arte correta.", color = Color.White, fontWeight = FontWeight.SemiBold)
+                                                    Text("A pesquisa e a aplicação direta das capas ainda precisam ser concluídas; não vou apresentar esta seção como scraper pronto antes de testar o download e o salvamento local.", color = Color(0xFFFFCC80), fontSize = 12.sp)
+                                                }
+                                                "Emuladores" -> Text("Detecção e associação de emuladores serão configuradas aqui.", color = Muted)
+                                                "Controles" -> Text("Mapeamento de botões, navegação e atalhos serão configurados aqui.", color = Muted)
+                                                else -> Text("Sons, animações e comportamento de inicialização do QPlay.", color = Muted)
                                             }
                                         }
                                     }
-                                    option("Pasta dos jogos", "Localizar seus arquivos .nup", Icons.Rounded.FolderOpen) { settingsOpen = false; folderPicker.launch(folderUri) }
-                                    option("Aplicativos", "Escolher o que aparece na biblioteca", Icons.Rounded.Apps) { settingsOpen = false; tab = "Aplicativos" }
-                                    option("Perfil", "Alterar nome da saudação", Icons.Rounded.Person) { settingsOpen = false; nameDialog = true }
-                                    option("Todos os jogos", "Mostrar a biblioteca completa", Icons.Rounded.SportsEsports) { settingsOpen = false; libraryFilter = "Todos" }
-                                    option("Favoritos", "Ver seus jogos favoritos", Icons.Rounded.Favorite) { settingsOpen = false; libraryFilter = "Favoritos" }
-                                    option("Grupos", "Ver jogos organizados em grupos", Icons.Rounded.Folder) { settingsOpen = false; libraryFilter = "Grupos" }
-                                    option("Atualizar biblioteca", "Procurar jogos e aplicativos novamente", Icons.Rounded.Refresh) { settingsOpen = false; refreshToken++; apps = emptyList() }
-                                    TextButton(onClick = { settingsOpen = false }, modifier = Modifier.align(Alignment.End)) { Text("FECHAR", color = Color(0xFF35BCEB), fontWeight = FontWeight.Bold) }
+                                    Divider(color = Color(0xFF777777))
+                                    Row(Modifier.fillMaxWidth().padding(top = 8.dp), horizontalArrangement = Arrangement.End) { Text("B  VOLTAR     A  CONFIRMAR", color = Color.White, fontSize = 12.sp, fontWeight = FontWeight.Bold) }
                                 }
                             }
                         }
