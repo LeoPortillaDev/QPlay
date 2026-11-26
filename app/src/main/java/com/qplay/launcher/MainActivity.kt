@@ -99,6 +99,7 @@ class MainActivity : ComponentActivity() {
         var apps by remember { mutableStateOf(installedApps()) }
         var tab by remember { mutableStateOf("Biblioteca") }
         var scanning by remember { mutableStateOf(false) }
+        var refreshToken by remember { mutableIntStateOf(0) }
         var scanMessage by remember { mutableStateOf("Escolha a pasta onde estão seus arquivos .nup") }
         val peanuts = peanutsPackage()
 
@@ -114,7 +115,7 @@ class MainActivity : ComponentActivity() {
             }
         }
 
-        LaunchedEffect(folderUri) {
+        LaunchedEffect(folderUri, refreshToken) {
             val root = folderUri
             if (root != null) {
                 scanning = true
@@ -153,7 +154,7 @@ class MainActivity : ComponentActivity() {
                 }
                 QPlayAction("ESCOLHER PASTA", Icons.Rounded.FolderOpen) { folderPicker.launch(folderUri) }
                 Spacer(Modifier.width(10.dp))
-                QPlayAction("ATUALIZAR", Icons.Rounded.Refresh) { folderUri?.let { folderUri = it } ; apps = installedApps() }
+                QPlayAction("ATUALIZAR", Icons.Rounded.Refresh) { refreshToken++ ; apps = installedApps() }
             }
             Spacer(Modifier.height(18.dp))
             Row(horizontalArrangement = Arrangement.spacedBy(8.dp)) {
