@@ -49,7 +49,7 @@ import kotlinx.coroutines.withContext
 private data class InstalledGame(val name: String, val packageName: String, val isGame: Boolean)
 private data class NupGame(val name: String, val uri: Uri, val fileName: String)
 
-private val Bg = Color(0xFF0B0D12)
+private val Bg = Color(0xFF303030)
 private val Panel = Color(0xFF171C26)
 private val Panel2 = Color(0xFF202735)
 private val Muted = Color(0xFF929BAD)
@@ -62,7 +62,7 @@ class MainActivity : ComponentActivity() {
         super.onCreate(savedInstanceState)
         @Suppress("DEPRECATION")
         window.decorView.systemUiVisibility = (android.view.View.SYSTEM_UI_FLAG_FULLSCREEN or android.view.View.SYSTEM_UI_FLAG_HIDE_NAVIGATION or android.view.View.SYSTEM_UI_FLAG_IMMERSIVE_STICKY)
-        window.navigationBarColor = android.graphics.Color.rgb(11, 13, 18)
+        window.navigationBarColor = android.graphics.Color.rgb(48, 48, 48)
         setContent { QPlayTheme { QPlayApp() } }
     }
 
@@ -157,7 +157,7 @@ class MainActivity : ComponentActivity() {
             val libraryApps = apps.filter { it.packageName in selectedApps }
             val totalItems = games.size + libraryApps.size
 
-            Column(Modifier.fillMaxSize().padding(horizontal = maxWidth * 0.045f, vertical = maxHeight * 0.045f)) {
+            Column(Modifier.fillMaxSize().background(Bg).padding(horizontal = maxWidth * 0.025f, vertical = maxHeight * 0.045f)) {
                 // Top system strip: discreet brand, status and settings.
                 Row(Modifier.fillMaxWidth(), verticalAlignment = Alignment.CenterVertically) {
                     androidx.compose.foundation.Image(
@@ -202,17 +202,17 @@ class MainActivity : ComponentActivity() {
                         Spacer(Modifier.weight(1f))
                         // A single continuous horizontal shelf; side tiles remain visible.
                         LazyRow(
-                            contentPadding = PaddingValues(horizontal = (this@BoxWithConstraints.maxWidth - tileSize) / 2),
+                            contentPadding = PaddingValues(horizontal = 0.dp),
                             horizontalArrangement = Arrangement.spacedBy((tileSize * 0.075f).coerceAtLeast(10.dp)),
                             verticalAlignment = Alignment.CenterVertically,
                             modifier = Modifier.fillMaxWidth().height(tileSize + 34.dp)
                         ) {
                             rowItems(games, key = { it.uri.toString() }) { game ->
-                                SwitchGameCard(game.uri.toString(), game.name, prefs, tileSize,
+                                SwitchGameCard(game.uri.toString(), game.name, prefs, tileSize, games.firstOrNull()?.uri == game.uri,
                                     { launchNup(game) }, { focusedGameName = it })
                             }
                             rowItems(libraryApps, key = { "app:" + it.packageName }) { app ->
-                                SwitchGameCard(app.packageName, app.name, prefs, tileSize,
+                                SwitchGameCard(app.packageName, app.name, prefs, tileSize, games.isEmpty() && libraryApps.firstOrNull()?.packageName == app.packageName,
                                     { launchAndroidApp(app.packageName) }, { focusedGameName = it })
                             }
                         }
@@ -242,8 +242,8 @@ class MainActivity : ComponentActivity() {
 
     @OptIn(ExperimentalFoundationApi::class)
     @Composable
-    private fun SwitchGameCard(key: String, originalName: String, prefs: android.content.SharedPreferences, tileSize: androidx.compose.ui.unit.Dp, onClick: () -> Unit, onFocusName: (String) -> Unit) {
-        var focused by remember { mutableStateOf(false) }
+    private fun SwitchGameCard(key: String, originalName: String, prefs: android.content.SharedPreferences, tileSize: androidx.compose.ui.unit.Dp, initiallySelected: Boolean, onClick: () -> Unit, onFocusName: (String) -> Unit) {
+        var focused by remember(key) { mutableStateOf(initiallySelected) }
         var editOpen by remember { mutableStateOf(false) }
         var title by remember(key) { mutableStateOf(prefs.getString("edit_name_" + key, originalName) ?: originalName) }
         var coverUri by remember(key) { mutableStateOf(prefs.getString("cover_" + key, null)?.let(Uri::parse)) }
@@ -257,11 +257,11 @@ class MainActivity : ComponentActivity() {
         val cover = produceState<ImageBitmap?>(null, coverUri) {
             value = withContext(Dispatchers.IO) { try { coverUri?.let { uri -> contentResolver.openInputStream(uri)?.use { stream -> BitmapFactory.decodeStream(stream) }?.asImageBitmap() } } catch (_: Exception) { null } }
         }
-        Surface(color = if (focused) Color(0xFF343B47) else Color(0xFF292929), shape = RoundedCornerShape(3.dp), border = BorderStroke(if (focused) 4.dp else 2.dp, if (focused) Color(0xFF39C5E8) else Color(0xFF3A3A3A)), modifier = Modifier.width(tileSize).height(tileSize).onFocusChanged { focused = it.isFocused; if (it.isFocused) onFocusName(title) }.combinedClickable(onClick = onClick, onLongClick = { draftTitle = title; editOpen = true })) {
+        Surface(color = if (focused) Color(0xFF343434) else Color(0xFF292929), shape = RoundedCornerShape(3.dp), border = BorderStroke(if (focused) 4.dp else 2.dp, if (focused) Color(0xFF35BCEB) else Color(0xFF3A3A3A)), modifier = Modifier.width(tileSize).height(tileSize).onFocusChanged { focused = it.isFocused; if (it.isFocused) onFocusName(title) }.combinedClickable(onClick = onClick, onLongClick = { draftTitle = title; editOpen = true })) {
             Box(Modifier.fillMaxSize()) {
                 if (cover.value != null) androidx.compose.foundation.Image(bitmap = cover.value!!, contentDescription = title, contentScale = ContentScale.Crop, modifier = Modifier.fillMaxSize())
                 else Box(Modifier.fillMaxSize().background(Color(0xFF303030)), contentAlignment = Alignment.Center) { Icon(Icons.Rounded.SportsEsports, null, tint = Color(0xFF777777), modifier = Modifier.size(58.dp)) }
-                Box(Modifier.align(Alignment.BottomStart).fillMaxWidth().background(Color(0xCC111318)).padding(horizontal = 10.dp, vertical = 8.dp)) { Text(title, color = Color.White, fontSize = 12.sp, fontWeight = FontWeight.Bold, maxLines = 2, overflow = TextOverflow.Ellipsis) }
+                Box(Modifier.align(Alignment.BottomStart).fillMaxWidth().background(Color(0xCC111318)).padding(horizontal = 10.dp, vertical = 8.dp)) { Text(title, color = if (focused) Color(0xFF27B8E8) else Color(0xFF888888), fontSize = 12.sp, fontWeight = FontWeight.Medium, maxLines = 2, overflow = TextOverflow.Ellipsis) }
             }
         }
         if (editOpen) AlertDialog(onDismissRequest = { editOpen = false }, title = { Text("Editar jogo") }, text = {
