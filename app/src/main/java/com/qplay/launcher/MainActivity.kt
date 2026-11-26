@@ -570,7 +570,7 @@ class MainActivity : ComponentActivity() {
                                     },
                                     modifier = Modifier.fillMaxWidth(),
                                     colors = ButtonDefaults.buttonColors(containerColor = Color(0xFF35BCEB))
-                                ) { Text(if (scraperBusy) "PESQUISANDO…" "BUSCAR ÍCONES", color = Color(0xFF101820), fontWeight = FontWeight.Bold) }
+                                ) { Text(if (scraperBusy) "PESQUISANDO…" else "BUSCAR ÍCONES", color = Color(0xFF101820), fontWeight = FontWeight.Bold) }
                                 Text(scraperStatus, color = if (scraperStatus.startsWith("Não") || scraperStatus.startsWith("Nenhuma")) Color(0xFFFFC078) else Muted, fontSize = 10.sp)
                             }
                             Divider(Modifier.fillMaxHeight().width(1.dp), color = Color(0xFF484848))
