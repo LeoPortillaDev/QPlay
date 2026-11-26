@@ -13,6 +13,7 @@ import androidx.activity.result.contract.ActivityResultContracts
 import androidx.compose.foundation.BorderStroke
 import androidx.compose.foundation.background
 import androidx.compose.foundation.clickable
+import androidx.compose.foundation.combinedClickable
 import androidx.compose.foundation.focusable
 import androidx.compose.foundation.layout.*
 import androidx.compose.foundation.lazy.grid.GridCells
@@ -31,6 +32,10 @@ import androidx.compose.ui.draw.clip
 import androidx.compose.ui.focus.onFocusChanged
 import androidx.compose.ui.res.painterResource
 import androidx.compose.ui.graphics.Color
+import androidx.compose.ui.graphics.asImageBitmap
+import androidx.compose.ui.graphics.ImageBitmap
+import androidx.compose.ui.layout.ContentScale
+import android.graphics.BitmapFactory
 import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.text.style.TextOverflow
 import androidx.compose.ui.unit.dp
@@ -200,9 +205,12 @@ class MainActivity : ComponentActivity() {
                             Text("${games.size + libraryApps.size} ITENS", color = Muted, fontSize = 10.sp, fontWeight = FontWeight.Bold)
                         }
                         Spacer(Modifier.height(14.dp))
-                        LazyRow(contentPadding = PaddingValues(horizontal = 5.dp, vertical = 12.dp), horizontalArrangement = Arrangement.spacedBy(18.dp), modifier = Modifier.weight(1f)) {
-                            rowItems(games, key = { it.uri.toString() }) { game -> SwitchGameCard(game.name, "ARQUIVO NUP") { launchNup(game) } }
-                            rowItems(libraryApps, key = { "app:" + it.packageName }) { app -> SwitchGameCard(app.name, "APP ANDROID") { launchAndroidApp(app.packageName) } }
+                        var focusedGameName by remember { mutableStateOf(games.firstOrNull()?.name ?: libraryApps.firstOrNull()?.name.orEmpty()) }
+                        Text(focusedGameName, color = Color(0xFF36BCEB), fontSize = 25.sp, fontWeight = FontWeight.Medium)
+                        Spacer(Modifier.height(8.dp))
+                        LazyRow(contentPadding = PaddingValues(horizontal = 5.dp, vertical = 12.dp), horizontalArrangement = Arrangement.spacedBy(14.dp), modifier = Modifier.weight(1f)) {
+                            rowItems(games, key = { it.uri.toString() }) { game -> SwitchGameCard(game.uri.toString(), game.name, prefs, { launchNup(game) }, { focusedGameName = it }) }
+                            rowItems(libraryApps, key = { "app:" + it.packageName }) { app -> SwitchGameCard(app.packageName, app.name, prefs, { launchAndroidApp(app.packageName) }, { focusedGameName = it }) }
                         }
                         Spacer(Modifier.height(12.dp))
                         Row(verticalAlignment = Alignment.CenterVertically) {
@@ -230,21 +238,35 @@ class MainActivity : ComponentActivity() {
     }
 
     @Composable
-    private fun SwitchGameCard(name: String, type: String, onClick: () -> Unit) {
+    private fun SwitchGameCard(key: String, originalName: String, prefs: android.content.SharedPreferences, onClick: () -> Unit, onFocusName: (String) -> Unit) {
         var focused by remember { mutableStateOf(false) }
-        Surface(onClick = onClick, color = if (focused) Color(0xFF292F3B) else Color(0xFF171B24), shape = RoundedCornerShape(19.dp), border = BorderStroke(if (focused) 3.dp else 1.dp, if (focused) Accent else Color(0xFF303744)), modifier = Modifier.width(218.dp).height(292.dp).onFocusChanged { focused = it.isFocused }.focusable()) {
-            Column(Modifier.padding(13.dp)) {
-                Box(Modifier.fillMaxWidth().weight(1f).clip(RoundedCornerShape(13.dp)).background(Color(0xFF252B36)), contentAlignment = Alignment.Center) {
-                    Icon(Icons.Rounded.SportsEsports, null, tint = Color(0xFFD5D9E1), modifier = Modifier.size(48.dp))
-                }
-                Spacer(Modifier.height(13.dp))
-                Text(name, color = Color.White, fontSize = 15.sp, fontWeight = FontWeight.Bold, maxLines = 2, overflow = TextOverflow.Ellipsis, minLines = 2)
-                Spacer(Modifier.height(5.dp))
-                Text(type, color = Muted, fontSize = 9.sp, fontWeight = FontWeight.Bold, letterSpacing = 1.sp)
+        var editOpen by remember { mutableStateOf(false) }
+        var title by remember(key) { mutableStateOf(prefs.getString("edit_name_" + key, originalName) ?: originalName) }
+        var coverUri by remember(key) { mutableStateOf(prefs.getString("cover_" + key, null)?.let(Uri::parse)) }
+        var draftTitle by remember { mutableStateOf(title) }
+        val picker = rememberLauncherForActivityResult(ActivityResultContracts.OpenDocument()) { uri ->
+            if (uri != null) {
+                try { contentResolver.takePersistableUriPermission(uri, Intent.FLAG_GRANT_READ_URI_PERMISSION); coverUri = uri; prefs.edit().putString("cover_" + key, uri.toString()).apply() }
+                catch (_: Exception) { android.widget.Toast.makeText(this, "Não foi possível guardar esta imagem.", android.widget.Toast.LENGTH_SHORT).show() }
             }
         }
+        val cover = produceState<ImageBitmap?>(null, coverUri) {
+            value = withContext(Dispatchers.IO) { try { coverUri?.let { uri -> contentResolver.openInputStream(uri)?.use { stream -> BitmapFactory.decodeStream(stream) }?.asImageBitmap() } } catch (_: Exception) { null } }
+        }
+        Surface(color = if (focused) Color(0xFF343B47) else Color(0xFF292929), shape = RoundedCornerShape(3.dp), border = BorderStroke(if (focused) 4.dp else 2.dp, if (focused) Color(0xFF39C5E8) else Color(0xFF3A3A3A)), modifier = Modifier.width(220.dp).height(220.dp).onFocusChanged { focused = it.isFocused; if (it.isFocused) onFocusName(title) }.combinedClickable(onClick = onClick, onLongClick = { draftTitle = title; editOpen = true })) {
+            Box(Modifier.fillMaxSize()) {
+                if (cover.value != null) androidx.compose.foundation.Image(bitmap = cover.value!!, contentDescription = title, contentScale = ContentScale.Crop, modifier = Modifier.fillMaxSize())
+                else Box(Modifier.fillMaxSize().background(Color(0xFF303030)), contentAlignment = Alignment.Center) { Icon(Icons.Rounded.SportsEsports, null, tint = Color(0xFF777777), modifier = Modifier.size(58.dp)) }
+                Box(Modifier.align(Alignment.BottomStart).fillMaxWidth().background(Color(0xCC111318)).padding(horizontal = 10.dp, vertical = 8.dp)) { Text(title, color = Color.White, fontSize = 12.sp, fontWeight = FontWeight.Bold, maxLines = 2, overflow = TextOverflow.Ellipsis) }
+            }
+        }
+        if (editOpen) AlertDialog(onDismissRequest = { editOpen = false }, title = { Text("Editar jogo") }, text = {
+            Column(verticalArrangement = Arrangement.spacedBy(12.dp)) {
+                OutlinedTextField(value = draftTitle, onValueChange = { draftTitle = it }, label = { Text("Nome exibido") }, singleLine = true)
+                OutlinedButton(onClick = { picker.launch(arrayOf("image/*")) }) { Icon(Icons.Rounded.Image, null); Spacer(Modifier.width(8.dp)); Text(if (coverUri == null) "Escolher capa" else "Trocar capa") }
+            }
+        }, confirmButton = { TextButton(onClick = { title = draftTitle.ifBlank { originalName }; prefs.edit().putString("edit_name_" + key, title).apply(); editOpen = false; onFocusName(title) }) { Text("Salvar") } }, dismissButton = { TextButton(onClick = { editOpen = false }) { Text("Cancelar") } })
     }
-
     @Composable
     private fun SelectableAppTile(app: InstalledGame, selected: Boolean, onToggle: () -> Unit, onLaunch: () -> Unit) {
         Surface(color = if (selected) Color(0xFF26352F) else Panel, shape = RoundedCornerShape(16.dp), border = BorderStroke(1.dp, if (selected) Color(0xFF78B58A) else Color(0xFF293140)), modifier = Modifier.fillMaxWidth()) {
