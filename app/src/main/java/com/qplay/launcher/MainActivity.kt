@@ -62,12 +62,18 @@ class MainActivity : ComponentActivity() {
         return packageManager.queryIntentActivities(launcher, PackageManager.MATCH_ALL)
             .mapNotNull { it.activityInfo?.applicationInfo }
             .distinctBy { it.packageName }
-            .filter { it.packageName != packageName && it.packageName !in peanutsPackages }
+            .filter { it.packageName != packageName && it.packageName != peanutsPackage() }
             .map { InstalledGame(packageManager.getApplicationLabel(it).toString(), it.packageName, it.category == android.content.pm.ApplicationInfo.CATEGORY_GAME) }
             .sortedWith(compareByDescending<InstalledGame> { it.isGame }.thenBy { it.name.lowercase() })
     }
 
-    private fun peanutsPackage(): String? = peanutsPackages.firstOrNull { packageManager.getLaunchIntentForPackage(it) != null }
+    private fun peanutsPackage(): String? {
+        val installed = packageManager.getInstalledApplications(PackageManager.GET_META_DATA)
+        return installed.firstOrNull { app ->
+            val label = packageManager.getApplicationLabel(app).toString()
+            app.packageName != packageName && (app.packageName in peanutsPackages || label.contains("Peanuts", true) || app.packageName.contains("peanuts", true))
+        }?.packageName
+    }
 
     private fun launchAndroidApp(packageName: String) {
         packageManager.getLaunchIntentForPackage(packageName)?.let { startActivity(it) }
@@ -81,7 +87,7 @@ class MainActivity : ComponentActivity() {
         }
         val intent = Intent(Intent.ACTION_VIEW).apply {
             component = ComponentName(pkg, "dev.peanuts.launch.LaunchActivity")
-            setDataAndType(game.uri, "application/octet-stream")
+            data = game.uri
             addFlags(Intent.FLAG_GRANT_READ_URI_PERMISSION)
         }
         try {
