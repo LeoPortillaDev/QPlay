@@ -252,7 +252,7 @@ class MainActivity : ComponentActivity() {
                                 val compact = maxWidth < 820.dp || maxHeight < 460.dp
                                 val sideWidth = if (compact) 132.dp else (maxWidth * 0.22f).coerceIn(180.dp, 230.dp)
                                 val outerPad = if (compact) 8.dp else 16.dp
-                                Column(Modifier.fillMaxSize().padding(horizontal = outerPad, vertical = if (compact) 8.dp else 12.dp)) {
+                                Column(Modifier.fillMaxWidth(0.92f).fillMaxHeight(0.88f).align(Alignment.Center).background(Bg, RoundedCornerShape(16.dp)).padding(horizontal = outerPad, vertical = if (compact) 8.dp else 12.dp)) {
                                     Row(Modifier.fillMaxWidth().heightIn(min = 42.dp), verticalAlignment = Alignment.CenterVertically) {
                                         Icon(Icons.Rounded.Settings, null, tint = Color(0xFF35BCEB), modifier = Modifier.size(if (compact) 22.dp else 28.dp))
                                         Spacer(Modifier.width(8.dp))
@@ -451,7 +451,7 @@ class MainActivity : ComponentActivity() {
                     color = Color(0xFF202020),
                     shape = RoundedCornerShape(18.dp),
                     border = BorderStroke(2.dp, Color(0xFF35BCEB)),
-                    modifier = Modifier.fillMaxWidth(0.995f).fillMaxHeight(0.99f)
+                    modifier = Modifier.fillMaxWidth(0.92f).fillMaxHeight(0.88f)
                 ) {
                     Column(Modifier.fillMaxSize().padding(if (compact) 12.dp else 20.dp)) {
                         Row(Modifier.fillMaxWidth(), verticalAlignment = Alignment.CenterVertically) {
@@ -685,12 +685,12 @@ class MainActivity : ComponentActivity() {
             properties = androidx.compose.ui.window.DialogProperties(usePlatformDefaultWidth = false, decorFitsSystemWindows = false)
         ) {
             BoxWithConstraints(Modifier.fillMaxSize().background(Color(0x99000000)), contentAlignment = Alignment.Center) {
-                val compactEdit = maxWidth < 760.dp || maxHeight < 440.dp
+                val compactEdit = maxWidth < 900.dp || maxHeight < 600.dp
                 Surface(
                     color = Color(0xFF202020),
                     shape = RoundedCornerShape(18.dp),
                     border = BorderStroke(2.dp, Color(0xFF35BCEB)),
-                    modifier = Modifier.fillMaxWidth(0.995f).fillMaxHeight(0.99f)
+                    modifier = Modifier.fillMaxWidth(0.92f).fillMaxHeight(0.88f)
                 ) {
                     Column(Modifier.fillMaxSize().padding(if (compactEdit) 12.dp else 20.dp)) {
                         Row(Modifier.fillMaxWidth(), verticalAlignment = Alignment.CenterVertically) {
