@@ -182,7 +182,7 @@ class MainActivity : ComponentActivity() {
                 }
 
                 if (tab == "Biblioteca") {
-                    if (scanning) {
+                    if (scanning && totalItems == 0) {
                         Box(Modifier.weight(1f).fillMaxWidth(), contentAlignment = Alignment.Center) {
                             CircularProgressIndicator(color = Accent)
                         }
