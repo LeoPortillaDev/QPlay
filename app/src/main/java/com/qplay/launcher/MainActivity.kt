@@ -392,7 +392,7 @@ class MainActivity : ComponentActivity() {
         var editOpen by remember { mutableStateOf(false) }
         var scraperOpen by remember { mutableStateOf(false) }
         var scraperQuery by remember { mutableStateOf(originalName) }
-        var scraperSystem by remember { mutableStateOf("Nintendo_-_Nintendo_64") }
+        var scraperSystem by remember { mutableStateOf("") }
         var scraperBusy by remember { mutableStateOf(false) }
         var scraperStatus by remember { mutableStateOf("") }
         var scraperResults by remember { mutableStateOf<List<Pair<String, String>>>(emptyList()) }
@@ -418,98 +418,185 @@ class MainActivity : ComponentActivity() {
             }
         }
 
-        if (scraperOpen) Dialog(onDismissRequest = { scraperOpen = false }) {
-            Surface(color = Color(0xFF202020), shape = RoundedCornerShape(20.dp), border = BorderStroke(2.dp, Color(0xFF35BCEB)), modifier = Modifier.fillMaxWidth()) {
-                Column(Modifier.padding(20.dp), verticalArrangement = Arrangement.spacedBy(10.dp)) {
-                    Text("BUSCAR CAPA — LIBRETRO", color = Color(0xFF35BCEB), fontSize = 18.sp, fontWeight = FontWeight.ExtraBold)
-                    OutlinedTextField(value = scraperQuery, onValueChange = { scraperQuery = it }, label = { Text("Nome do jogo") }, singleLine = true, modifier = Modifier.fillMaxWidth())
-                    Text("Console / sistema", color = Color.White, fontSize = 12.sp, fontWeight = FontWeight.SemiBold)
-                    var systemMenu by remember { mutableStateOf(false) }
-                    Box {
-                        OutlinedButton(onClick = { systemMenu = true }) { Text(scraperSystem.replace("_", " "), color = Color.White) }
-                        DropdownMenu(expanded = systemMenu, onDismissRequest = { systemMenu = false }) {
-                            listOf("Nintendo_-_Nintendo_64","Nintendo_-_Game_Boy_Advance","Nintendo_-_Nintendo_Entertainment_System","Nintendo_-_Super_Nintendo_Entertainment_System","Nintendo_-_GameCube","Nintendo_-_Wii","Sony_-_PlayStation","Sony_-_PlayStation_2","Sega_-_Mega_Drive_-_Genesis","Sega_-_Dreamcast").forEach { system ->
-                                DropdownMenuItem(text = { Text(system.replace("_", " ")) }, onClick = { scraperSystem = system; systemMenu = false })
+        if (scraperOpen) Dialog(
+            onDismissRequest = { scraperOpen = false },
+            properties = androidx.compose.ui.window.DialogProperties(usePlatformDefaultWidth = false, decorFitsSystemWindows = true)
+        ) {
+            BoxWithConstraints(Modifier.fillMaxSize().background(Color(0x99000000)), contentAlignment = Alignment.Center) {
+                val compact = maxWidth < 760.dp || maxHeight < 500.dp
+                Surface(
+                    color = Color(0xFF202020),
+                    shape = RoundedCornerShape(18.dp),
+                    border = BorderStroke(2.dp, Color(0xFF35BCEB)),
+                    modifier = Modifier.fillMaxWidth(if (compact) 0.96f else 0.92f).fillMaxHeight(if (compact) 0.94f else 0.88f)
+                ) {
+                    Column(Modifier.fillMaxSize().padding(if (compact) 12.dp else 20.dp)) {
+                        Row(Modifier.fillMaxWidth(), verticalAlignment = Alignment.CenterVertically) {
+                            Icon(Icons.Rounded.ImageSearch, null, tint = Color(0xFF35BCEB), modifier = Modifier.size(if (compact) 22.dp else 28.dp))
+                            Spacer(Modifier.width(10.dp))
+                            Column(Modifier.weight(1f)) {
+                                Text("CENTRAL DE CAPAS", color = Color(0xFF35BCEB), fontSize = if (compact) 16.sp else 21.sp, fontWeight = FontWeight.ExtraBold)
+                                Text("Pesquise, visualize e escolha a arte do jogo", color = Muted, fontSize = if (compact) 10.sp else 12.sp)
                             }
+                            TextButton(onClick = { scraperOpen = false }) { Text("FECHAR  ✕", color = Color(0xFF35BCEB), fontWeight = FontWeight.Bold) }
                         }
-                    }
-                    Button(enabled = scraperQuery.isNotBlank() && !scraperBusy, onClick = {
-                        scraperBusy = true
-                        scraperStatus = "Consultando catálogo público…"
-                        scraperResults = emptyList()
-                        scraperScope.launch {
-                            try {
-                                val matches = withContext(Dispatchers.IO) {
-                                    val api = URL("https://api.github.com/repos/libretro-thumbnails/" + scraperSystem + "/contents/Named_Boxarts")
-                                    val conn = api.openConnection() as HttpURLConnection
-                                    conn.connectTimeout = 15000
-                                    conn.readTimeout = 20000
-                                    conn.setRequestProperty("Accept", "application/vnd.github+json")
-                                    val body = conn.inputStream.bufferedReader().use { it.readText() }
-                                    conn.disconnect()
-                                    val array = JSONArray(body)
-                                    val query = scraperQuery.trim().lowercase().replace(Regex("[^a-z0-9 ]"), "").replace(Regex("\\s+"), " ")
-                                    val words = query.split(" ").filter { it.length > 1 }
-                                    val scored = mutableListOf<Triple<Int, String, String>>()
-                                    for (i in 0 until array.length()) {
-                                        val item = array.getJSONObject(i)
-                                        val name = item.optString("name")
-                                        val clean = name.substringBeforeLast(".").lowercase().replace(Regex("[^a-z0-9 ]"), " ").replace(Regex("\\s+"), " ").trim()
-                                        val score = words.count { clean.contains(it) }
-                                        if (score > 0) {
-                                            val download = item.optString("download_url")
-                                            if (download.startsWith("https://")) scored.add(Triple(score, name, download))
+                        Divider(color = Color(0xFF555555), modifier = Modifier.padding(top = 8.dp, bottom = 12.dp))
+                        Row(Modifier.weight(1f).fillMaxWidth(), horizontalArrangement = Arrangement.spacedBy(14.dp)) {
+                            Column(Modifier.fillMaxHeight().fillMaxWidth(if (compact) 0.38f else 0.31f), verticalArrangement = Arrangement.spacedBy(10.dp)) {
+                                Text("JOGO", color = Color.White, fontSize = 11.sp, fontWeight = FontWeight.Bold, letterSpacing = 1.sp)
+                                OutlinedTextField(
+                                    value = scraperQuery,
+                                    onValueChange = { scraperQuery = it },
+                                    label = { Text("Nome do jogo") },
+                                    singleLine = false,
+                                    maxLines = 2,
+                                    modifier = Modifier.fillMaxWidth()
+                                )
+                                Text("PLATAFORMA", color = Color.White, fontSize = 11.sp, fontWeight = FontWeight.Bold, letterSpacing = 1.sp)
+                                var systemMenu by remember { mutableStateOf(false) }
+                                Box {
+                                    OutlinedButton(onClick = { systemMenu = true }, modifier = Modifier.fillMaxWidth()) {
+                                        Text(if (scraperSystem.isBlank()) "Selecionar console ▾" else scraperSystem.replace("_", " "), color = Color.White, maxLines = 1, overflow = TextOverflow.Ellipsis)
+                                    }
+                                    DropdownMenu(expanded = systemMenu, onDismissRequest = { systemMenu = false }) {
+                                        DropdownMenuItem(text = { Text("Nintendo Switch — não disponível no Libretro") }, enabled = false, onClick = {})
+                                        listOf(
+                                            "Nintendo_-_Nintendo_64", "Nintendo_-_Game_Boy_Advance",
+                                            "Nintendo_-_Nintendo_Entertainment_System", "Nintendo_-_Super_Nintendo_Entertainment_System",
+                                            "Nintendo_-_GameCube", "Nintendo_-_Wii", "Sony_-_PlayStation",
+                                            "Sony_-_PlayStation_2", "Sega_-_Mega_Drive_-_Genesis", "Sega_-_Dreamcast"
+                                        ).forEach { system ->
+                                            DropdownMenuItem(text = { Text(system.replace("_", " ")) }, onClick = { scraperSystem = system; systemMenu = false })
                                         }
                                     }
-                                    scored.sortedByDescending { it.first }.take(15).map { it.second to it.third }
                                 }
-                                scraperResults = matches
-                                scraperStatus = if (matches.isEmpty()) "Nenhuma capa encontrada. Tente outro nome ou console." else "${matches.size} capas encontradas. Selecione uma para aplicar."
-                            } catch (e: Exception) {
-                                scraperStatus = "Falha na busca. Verifique a conexão e tente novamente."
-                            }
-                            scraperBusy = false
-                        }
-                    }, colors = ButtonDefaults.buttonColors(containerColor = Color(0xFF35BCEB))) {
-                        Text(if (scraperBusy) "PESQUISANDO…" else "PESQUISAR CAPAS", color = Color.Black)
-                    }
-                    Text(scraperStatus, color = Muted, fontSize = 11.sp)
-                    Column(Modifier.heightIn(max = 260.dp).verticalScroll(rememberScrollState()), verticalArrangement = Arrangement.spacedBy(6.dp)) {
-                        scraperResults.forEach { result ->
-                            Surface(onClick = {
-                                scraperBusy = true
-                                scraperStatus = "Baixando capa…"
-                                scraperScope.launch {
-                                    try {
-                                        val localUri = withContext(Dispatchers.IO) {
-                                            val conn = URL(result.second).openConnection()
-                                            conn.connectTimeout = 15000
-                                            conn.readTimeout = 25000
-                                            val bitmap = BitmapFactory.decodeStream(conn.getInputStream()) ?: throw IllegalStateException("Imagem inválida")
-                                            val file = File(cacheDir, "qplay-cover-" + key.hashCode() + ".png")
-                                            FileOutputStream(file).use { bitmap.compress(android.graphics.Bitmap.CompressFormat.PNG, 100, it) }
-                                            Uri.fromFile(file)
+                                Text("A plataforma não será escolhida aleatoriamente. Selecione o console correto para pesquisar no catálogo.", color = Muted, fontSize = 10.sp)
+                                Button(
+                                    enabled = scraperQuery.isNotBlank() && scraperSystem.isNotBlank() && !scraperBusy,
+                                    onClick = {
+                                        scraperBusy = true
+                                        scraperStatus = "Consultando catálogo público…"
+                                        scraperResults = emptyList()
+                                        scraperScope.launch {
+                                            try {
+                                                val matches = withContext(Dispatchers.IO) {
+                                                    val api = URL("https://api.github.com/repos/libretro-thumbnails/" + scraperSystem + "/contents/Named_Boxarts")
+                                                    val conn = api.openConnection() as HttpURLConnection
+                                                    conn.connectTimeout = 15000
+                                                    conn.readTimeout = 20000
+                                                    conn.setRequestProperty("Accept", "application/vnd.github+json")
+                                                    val body = conn.inputStream.bufferedReader().use { it.readText() }
+                                                    conn.disconnect()
+                                                    val array = JSONArray(body)
+                                                    val query = scraperQuery.trim().lowercase().replace(Regex("[^a-z0-9 ]"), "").replace(Regex("\\s+"), " ")
+                                                    val words = query.split(" ").filter { it.length > 1 }
+                                                    val scored = mutableListOf<Triple<Int, String, String>>()
+                                                    for (i in 0 until array.length()) {
+                                                        val item = array.getJSONObject(i)
+                                                        val name = item.optString("name")
+                                                        val clean = name.substringBeforeLast(".").lowercase().replace(Regex("[^a-z0-9 ]"), " ").replace(Regex("\\s+"), " ").trim()
+                                                        val score = words.count { clean.contains(it) }
+                                                        if (score > 0) {
+                                                            val download = item.optString("download_url")
+                                                            if (download.startsWith("https://")) scored.add(Triple(score, name, download))
+                                                        }
+                                                    }
+                                                    scored.sortedByDescending { it.first }.take(18).map { it.second to it.third }
+                                                }
+                                                scraperResults = matches
+                                                scraperStatus = if (matches.isEmpty()) "Nenhuma capa encontrada neste console. Tente outro nome ou plataforma." else "${matches.size} capas encontradas."
+                                            } catch (e: Exception) {
+                                                scraperStatus = "Não foi possível consultar este catálogo. Verifique a conexão."
+                                            }
+                                            scraperBusy = false
                                         }
-                                        coverUri = localUri
-                                        prefs.edit().putString("cover_" + key, localUri.toString()).apply()
-                                        scraperOpen = false
-                                        android.widget.Toast.makeText(this@MainActivity, "Capa aplicada ao jogo!", android.widget.Toast.LENGTH_SHORT).show()
-                                    } catch (e: Exception) {
-                                        scraperStatus = "Não foi possível baixar essa imagem."
-                                    }
-                                    scraperBusy = false
+                                    },
+                                    modifier = Modifier.fillMaxWidth(),
+                                    colors = ButtonDefaults.buttonColors(containerColor = Color(0xFF35BCEB))
+                                ) { Text(if (scraperBusy) "PESQUISANDO…" else "PESQUISAR CAPAS", color = Color(0xFF101820), fontWeight = FontWeight.Bold) }
+                                Text(scraperStatus, color = if (scraperStatus.startsWith("Não") || scraperStatus.startsWith("Nenhuma")) Color(0xFFFFC078) else Muted, fontSize = 10.sp)
+                            }
+                            Divider(Modifier.fillMaxHeight().width(1.dp), color = Color(0xFF484848))
+                            Column(Modifier.weight(1f).fillMaxHeight()) {
+                                Row(Modifier.fillMaxWidth(), verticalAlignment = Alignment.CenterVertically) {
+                                    Text("RESULTADOS", color = Color.White, fontSize = 12.sp, fontWeight = FontWeight.Bold, letterSpacing = 1.sp)
+                                    Spacer(Modifier.weight(1f))
+                                    Text("${scraperResults.size} imagens", color = Muted, fontSize = 10.sp)
                                 }
-                            }, color = Color(0xFF2D2D2D), shape = RoundedCornerShape(8.dp), modifier = Modifier.fillMaxWidth()) {
-                                Row(Modifier.padding(10.dp), verticalAlignment = Alignment.CenterVertically) {
-                                    Icon(Icons.Rounded.Image, null, tint = Color(0xFF35BCEB))
-                                    Spacer(Modifier.width(10.dp))
-                                    Text(result.first, color = Color.White, fontSize = 11.sp, maxLines = 2, overflow = TextOverflow.Ellipsis)
+                                Spacer(Modifier.height(8.dp))
+                                if (scraperResults.isEmpty()) {
+                                    Box(Modifier.fillMaxSize(), contentAlignment = Alignment.Center) {
+                                        Column(horizontalAlignment = Alignment.CenterHorizontally, verticalArrangement = Arrangement.spacedBy(8.dp)) {
+                                            Icon(Icons.Rounded.Collections, null, tint = Color(0xFF66717A), modifier = Modifier.size(42.dp))
+                                            Text(if (scraperBusy) "Buscando imagens…" else "As capas encontradas aparecerão aqui", color = Muted, fontSize = 12.sp)
+                                        }
+                                    }
+                                } else {
+                                    LazyVerticalGrid(
+                                        columns = GridCells.Adaptive(if (compact) 88.dp else 112.dp),
+                                        modifier = Modifier.fillMaxSize(),
+                                        contentPadding = PaddingValues(4.dp),
+                                        horizontalArrangement = Arrangement.spacedBy(10.dp),
+                                        verticalArrangement = Arrangement.spacedBy(10.dp)
+                                    ) {
+                                        items(scraperResults.size) { index ->
+                                            val result = scraperResults[index]
+                                            val preview = produceState<ImageBitmap?>(null, result.second) {
+                                                value = withContext(Dispatchers.IO) {
+                                                    try {
+                                                        val c = URL(result.second).openConnection()
+                                                        c.connectTimeout = 12000; c.readTimeout = 18000
+                                                        BitmapFactory.decodeStream(c.getInputStream())?.asImageBitmap()
+                                                    } catch (_: Exception) { null }
+                                                }
+                                            }
+                                            Surface(
+                                                onClick = {
+                                                    scraperBusy = true
+                                                    scraperStatus = "Baixando e aplicando capa…"
+                                                    scraperScope.launch {
+                                                        try {
+                                                            val localUri = withContext(Dispatchers.IO) {
+                                                                val c = URL(result.second).openConnection()
+                                                                c.connectTimeout = 15000; c.readTimeout = 25000
+                                                                val bitmap = BitmapFactory.decodeStream(c.getInputStream()) ?: throw IllegalStateException("Imagem inválida")
+                                                                val file = File(filesDir, "qplay-cover-" + key.hashCode() + ".png")
+                                                                FileOutputStream(file).use { bitmap.compress(android.graphics.Bitmap.CompressFormat.PNG, 100, it) }
+                                                                Uri.fromFile(file)
+                                                            }
+                                                            coverUri = localUri
+                                                            prefs.edit().putString("cover_" + key, localUri.toString()).apply()
+                                                            scraperOpen = false
+                                                            android.widget.Toast.makeText(this@MainActivity, "Capa aplicada ao jogo!", android.widget.Toast.LENGTH_SHORT).show()
+                                                        } catch (_: Exception) { scraperStatus = "Não foi possível baixar esta imagem." }
+                                                        scraperBusy = false
+                                                    }
+                                                },
+                                                color = Color(0xFF292929),
+                                                shape = RoundedCornerShape(9.dp),
+                                                border = BorderStroke(1.dp, Color(0xFF454545))
+                                            ) {
+                                                Column(Modifier.padding(6.dp), verticalArrangement = Arrangement.spacedBy(5.dp)) {
+                                                    Box(Modifier.fillMaxWidth().aspectRatio(0.72f).clip(RoundedCornerShape(5.dp)).background(Color(0xFF171717)), contentAlignment = Alignment.Center) {
+                                                        if (preview.value != null) androidx.compose.foundation.Image(bitmap = preview.value!!, contentDescription = result.first, contentScale = ContentScale.Crop, modifier = Modifier.fillMaxSize())
+                                                        else Icon(Icons.Rounded.SportsEsports, null, tint = Muted, modifier = Modifier.size(28.dp))
+                                                    }
+                                                    Text(result.first.substringBeforeLast("."), color = Color.White, fontSize = 9.sp, maxLines = 2, overflow = TextOverflow.Ellipsis)
+                                                    Text("APLICAR CAPA", color = Color(0xFF35BCEB), fontSize = 9.sp, fontWeight = FontWeight.Bold)
+                                                }
+                                            }
+                                        }
+                                    }
                                 }
                             }
                         }
+                        Divider(color = Color(0xFF555555), modifier = Modifier.padding(top = 10.dp))
+                        Row(Modifier.fillMaxWidth().padding(top = 7.dp), verticalAlignment = Alignment.CenterVertically) {
+                            Text("FONTE: LIBRETRO THUMBNAILS • SEM API KEY", color = Muted, fontSize = 9.sp)
+                            Spacer(Modifier.weight(1f))
+                            TextButton(onClick = { scraperOpen = false }) { Text("VOLTAR", color = Color(0xFF35BCEB), fontWeight = FontWeight.Bold) }
+                        }
                     }
-                    Text("Fonte pública Libretro. A disponibilidade depende do console selecionado.", color = Muted, fontSize = 10.sp)
-                    TextButton(onClick = { scraperOpen = false }, modifier = Modifier.align(Alignment.End)) { Text("FECHAR", color = Color(0xFF35BCEB)) }
                 }
             }
         }
