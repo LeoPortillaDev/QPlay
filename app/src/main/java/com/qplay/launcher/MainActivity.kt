@@ -262,7 +262,7 @@ class MainActivity : ComponentActivity() {
                                     Divider(color = Color(0xFF777777))
                                     Row(Modifier.weight(1f).fillMaxWidth()) {
                                         Column(Modifier.width(sideWidth).fillMaxHeight().verticalScroll(rememberScrollState()), verticalArrangement = Arrangement.spacedBy(2.dp)) {
-                                            listOf("Perfil", "Aparência", "Biblioteca", "Imagens", "Emuladores", "Controles", "Sistema").forEach { category ->
+                                            listOf("Perfil", "Aparência", "Biblioteca", "Imagens", "Controles", "Sistema").forEach { category ->
                                                 val active = settingsCategory == category
                                                 Surface(onClick = { settingsCategory = category }, color = if (active) Color(0xFF252B30) else Color.Transparent, shape = RoundedCornerShape(5.dp), modifier = Modifier.fillMaxWidth()) {
                                                     Row(verticalAlignment = Alignment.CenterVertically) {
@@ -297,10 +297,9 @@ class MainActivity : ComponentActivity() {
                                                     Button(onClick = { libraryFilter = "Todos"; settingsOpen = false }) { Text("Mostrar todos os jogos") }
                                                 }
                                                 "Imagens" -> {
-                                                    Text("Nintendo Switch usa ícones da eShop. Consoles retrô usam capas do catálogo Libretro.", color = Muted)
+                                                    Text("Nintendo Switch usa ícones oficiais da eShop. Jogos nativos usam os ícones dos próprios aplicativos.", color = Muted)
                                                     Text("Use o editor de cada jogo para pesquisar e aplicar imagens.", color = Color.White, fontWeight = FontWeight.SemiBold)
                                                 }
-                                                "Emuladores" -> Text("Detecção e associação de emuladores serão configuradas aqui.", color = Muted)
                                                 "Controles" -> Text("Mapeamento de botões, navegação e atalhos serão configurados aqui.", color = Muted)
                                                 else -> Text("Sons, animações e comportamento de inicialização do QPlay.", color = Muted)
                                             }
@@ -415,7 +414,6 @@ class MainActivity : ComponentActivity() {
         var editOpen by remember { mutableStateOf(false) }
         var scraperOpen by remember { mutableStateOf(false) }
         var scraperQuery by remember { mutableStateOf(originalName) }
-        var scraperSystem by remember { mutableStateOf("") }
         var scraperBusy by remember { mutableStateOf(false) }
         var scraperStatus by remember { mutableStateOf("") }
         var scraperResults by remember { mutableStateOf<List<Pair<String, String>>>(emptyList()) }
@@ -446,20 +444,20 @@ class MainActivity : ComponentActivity() {
             properties = androidx.compose.ui.window.DialogProperties(usePlatformDefaultWidth = false, decorFitsSystemWindows = false)
         ) {
             BoxWithConstraints(Modifier.fillMaxSize().background(Color(0x99000000)), contentAlignment = Alignment.Center) {
-                val compact = maxWidth < 760.dp || maxHeight < 500.dp
+                val compact = maxWidth < 900.dp || maxHeight < 600.dp
                 Surface(
                     color = Color(0xFF202020),
                     shape = RoundedCornerShape(18.dp),
                     border = BorderStroke(2.dp, Color(0xFF35BCEB)),
-                    modifier = Modifier.fillMaxSize()
+                    modifier = Modifier.fillMaxWidth(0.82f).fillMaxHeight(0.78f)
                 ) {
-                    Column(Modifier.fillMaxSize().padding(if (compact) 12.dp else 20.dp)) {
+                    Column(Modifier.fillMaxSize().padding(if (compact) 10.dp else 16.dp)) {
                         Row(Modifier.fillMaxWidth(), verticalAlignment = Alignment.CenterVertically) {
                             Icon(Icons.Rounded.ImageSearch, null, tint = Color(0xFF35BCEB), modifier = Modifier.size(if (compact) 22.dp else 28.dp))
                             Spacer(Modifier.width(10.dp))
                             Column(Modifier.weight(1f)) {
-                                Text("CENTRAL DE CAPAS", color = Color(0xFF35BCEB), fontSize = if (compact) 16.sp else 21.sp, fontWeight = FontWeight.ExtraBold)
-                                Text("Pesquise, visualize e escolha a arte do jogo", color = Muted, fontSize = if (compact) 10.sp else 12.sp)
+                                Text("ÍCONES NINTENDO SWITCH", color = Color(0xFF35BCEB), fontSize = if (compact) 16.sp else 21.sp, fontWeight = FontWeight.ExtraBold)
+                                Text("Pesquise e aplique o ícone oficial do jogo", color = Muted, fontSize = if (compact) 10.sp else 12.sp)
                             }
                             TextButton(onClick = { scraperOpen = false }) { Text("FECHAR  ✕", color = Color(0xFF35BCEB), fontWeight = FontWeight.Bold) }
                         }
@@ -475,27 +473,9 @@ class MainActivity : ComponentActivity() {
                                     maxLines = 1,
                                     modifier = Modifier.fillMaxWidth()
                                 )
-                                Text("PLATAFORMA", color = Color.White, fontSize = 11.sp, fontWeight = FontWeight.Bold, letterSpacing = 1.sp)
-                                var systemMenu by remember { mutableStateOf(false) }
-                                Box {
-                                    OutlinedButton(onClick = { systemMenu = true }, modifier = Modifier.fillMaxWidth()) {
-                                        Text(if (scraperSystem.isBlank()) "Selecionar console ▾" else if (scraperSystem == "Nintendo_Switch") "Nintendo Switch (eShop)" else scraperSystem.replace("_", " "), color = Color.White, maxLines = 1, overflow = TextOverflow.Ellipsis)
-                                    }
-                                    DropdownMenu(expanded = systemMenu, onDismissRequest = { systemMenu = false }) {
-                                        DropdownMenuItem(text = { Text("Nintendo Switch (eShop)") }, onClick = { scraperSystem = "Nintendo_Switch"; systemMenu = false })
-                                        listOf(
-                                            "Nintendo_-_Nintendo_64", "Nintendo_-_Game_Boy_Advance",
-                                            "Nintendo_-_Nintendo_Entertainment_System", "Nintendo_-_Super_Nintendo_Entertainment_System",
-                                            "Nintendo_-_GameCube", "Nintendo_-_Wii", "Sony_-_PlayStation",
-                                            "Sony_-_PlayStation_2", "Sega_-_Mega_Drive_-_Genesis", "Sega_-_Dreamcast"
-                                        ).forEach { system ->
-                                            DropdownMenuItem(text = { Text(system.replace("_", " ")) }, onClick = { scraperSystem = system; systemMenu = false })
-                                        }
-                                    }
-                                }
-                                Text("A plataforma não será escolhida aleatoriamente. Selecione o console correto para pesquisar no catálogo.", color = Muted, fontSize = 10.sp)
+                                Text("PLATAFORMA: NINTENDO SWITCH • eSHOP", color = Color.White, fontSize = 11.sp, fontWeight = FontWeight.Bold, letterSpacing = 1.sp)
                                 Button(
-                                    enabled = scraperQuery.isNotBlank() && scraperSystem.isNotBlank() && !scraperBusy,
+                                    enabled = scraperQuery.isNotBlank() && !scraperBusy,
                                     onClick = {
                                         scraperBusy = true
                                         scraperStatus = "Consultando catálogo público…"
@@ -503,82 +483,7 @@ class MainActivity : ComponentActivity() {
                                         scraperScope.launch {
                                             try {
                                                 val matches = withContext(Dispatchers.IO) {
-                                                    if (scraperSystem == "Nintendo_Switch") {
-                                                        searchSwitchCovers(scraperQuery)
-                                                    } else {
-                                                    val base = "https://api.github.com/repos/libretro-thumbnails/" + scraperSystem
-                                                    fun getJson(url: String): String {
-                                                        val conn = URL(url).openConnection() as HttpURLConnection
-                                                        conn.connectTimeout = 15000
-                                                        conn.readTimeout = 30000
-                                                        conn.setRequestProperty("Accept", "application/vnd.github+json")
-                                                        conn.setRequestProperty("User-Agent", "QPlay-Android")
-                                                        conn.setRequestProperty("X-GitHub-Api-Version", "2022-11-28")
-                                                        try {
-                                                            val code = conn.responseCode
-                                                            val stream = if (code in 200..299) conn.inputStream else conn.errorStream
-                                                            val body = stream?.bufferedReader()?.use { it.readText() }.orEmpty()
-                                                            if (code !in 200..299) {
-                                                                val detail = try { org.json.JSONObject(body).optString("message") } catch (_: Exception) { "" }
-                                                                throw IllegalStateException("GitHub HTTP $code" + if (detail.isBlank()) "" else ": $detail")
-                                                            }
-                                                            return body
-                                                        } finally { conn.disconnect() }
-                                                    }
-                                                    val repository = org.json.JSONObject(getJson(base))
-                                                    val branch = repository.optString("default_branch").ifBlank { "master" }
-                                                    val encodedBranch = Uri.encode(branch)
-                                                    val treeJson = org.json.JSONObject(getJson("$base/git/trees/$encodedBranch?recursive=1"))
-                                                    val tree = treeJson.optJSONArray("tree") ?: JSONArray()
-                                                    val imagePaths = mutableListOf<String>()
-                                                    for (i in 0 until tree.length()) {
-                                                        val item = tree.optJSONObject(i) ?: continue
-                                                        val path = item.optString("path")
-                                                        if (path.substringBefore('/').equals("Named_Boxarts", true) &&
-                                                            path.substringAfterLast('/').contains('.') &&
-                                                            item.optString("type") == "blob") imagePaths.add(path)
-                                                    }
-                                                    // GitHub may truncate large recursive trees. In that case, list the
-                                                    // artwork directory directly instead of silently searching partial data.
-                                                    if (treeJson.optBoolean("truncated") || imagePaths.isEmpty()) {
-                                                        val contentsUrl = "$base/contents/Named_Boxarts?ref=$encodedBranch"
-                                                        val contents = JSONArray(getJson(contentsUrl))
-                                                        for (i in 0 until contents.length()) {
-                                                            val item = contents.optJSONObject(i) ?: continue
-                                                            val path = item.optString("path")
-                                                            val type = item.optString("type")
-                                                            if (type == "file" && path.substringAfterLast('/').contains('.')) imagePaths.add(path)
-                                                        }
-                                                    }
-                                                    val normalizer = java.text.Normalizer.Form.NFD
-                                                    fun normalize(value: String): String =
-                                                        java.text.Normalizer.normalize(value.lowercase(), normalizer)
-                                                            .replace(Regex("\\p{M}+"), "")
-                                                            .replace(Regex("[^a-z0-9]+"), " ").trim()
-                                                    val query = normalize(scraperQuery)
-                                                    val words = query.split(Regex("\\s+")).filter { it.length > 1 }
-                                                    val scored = imagePaths.distinct().mapNotNull { path ->
-                                                        val name = path.substringAfterLast('/')
-                                                        val clean = normalize(name.substringBeforeLast("."))
-                                                        val nameWords = clean.split(Regex("\\s+")).filter { it.isNotBlank() }
-                                                        val matched = words.count { word -> nameWords.any { it == word } }
-                                                        val score = when {
-                                                            clean == query -> 1000
-                                                            query.isNotBlank() && clean.contains(query) -> 700 + matched
-                                                            matched > 0 -> matched * 10
-                                                            else -> 0
-                                                        }
-                                                        if (score == 0) null else {
-                                                            val encodedPath = path.split('/').joinToString("/") { Uri.encode(it) }
-                                                            val download = "https://raw.githubusercontent.com/libretro-thumbnails/$scraperSystem/$encodedBranch/$encodedPath"
-                                                            Triple(score, name, download)
-                                                        }
-                                                    }
-                                                    scored.sortedWith(
-                                                        compareByDescending<Triple<Int, String, String>> { it.first }
-                                                            .thenBy { it.second.length }
-                                                    ).take(40).map { it.second to it.third }
-                                                    }
+                                                    searchSwitchCovers(scraperQuery)
                                                 }
                                                 scraperResults = matches
                                                 scraperStatus = if (matches.isEmpty()) "Nenhuma capa correspondente neste console. Confira o nome e a plataforma selecionada." else "${matches.size} capas encontradas."
@@ -592,7 +497,7 @@ class MainActivity : ComponentActivity() {
                                     },
                                     modifier = Modifier.fillMaxWidth(),
                                     colors = ButtonDefaults.buttonColors(containerColor = Color(0xFF35BCEB))
-                                ) { Text(if (scraperBusy) "PESQUISANDO…" else if (scraperSystem == "Nintendo_Switch") "BUSCAR ÍCONES" else "PESQUISAR CAPAS", color = Color(0xFF101820), fontWeight = FontWeight.Bold) }
+                                ) { Text(if (scraperBusy) "PESQUISANDO…" "BUSCAR ÍCONES", color = Color(0xFF101820), fontWeight = FontWeight.Bold) }
                                 Text(scraperStatus, color = if (scraperStatus.startsWith("Não") || scraperStatus.startsWith("Nenhuma")) Color(0xFFFFC078) else Muted, fontSize = 10.sp)
                             }
                             Divider(Modifier.fillMaxHeight().width(1.dp), color = Color(0xFF484848))
@@ -607,7 +512,7 @@ class MainActivity : ComponentActivity() {
                                     Box(Modifier.fillMaxSize(), contentAlignment = Alignment.Center) {
                                         Column(horizontalAlignment = Alignment.CenterHorizontally, verticalArrangement = Arrangement.spacedBy(8.dp)) {
                                             Icon(Icons.Rounded.Collections, null, tint = Color(0xFF66717A), modifier = Modifier.size(42.dp))
-                                            Text(if (scraperBusy) "Buscando imagens…" else "As capas encontradas aparecerão aqui", color = Muted, fontSize = 12.sp)
+                                            Text(if (scraperBusy) "Buscando imagens…" else "Os ícones encontrados aparecerão aqui", color = Muted, fontSize = 12.sp)
                                         }
                                     }
                                 } else {
@@ -646,7 +551,7 @@ class MainActivity : ComponentActivity() {
                                                             coverUri = localUri
                                                             prefs.edit().putString("cover_" + key, localUri.toString()).apply()
                                                             scraperOpen = false
-                                                            android.widget.Toast.makeText(this@MainActivity, if (scraperSystem == "Nintendo_Switch") "Ícone aplicado ao jogo!" else "Capa aplicada ao jogo!", android.widget.Toast.LENGTH_SHORT).show()
+                                                            android.widget.Toast.makeText(this@MainActivity, "Ícone do Switch aplicado ao jogo!", android.widget.Toast.LENGTH_SHORT).show()
                                                         } catch (_: Exception) { scraperStatus = "Não foi possível baixar esta imagem." }
                                                         scraperBusy = false
                                                     }
@@ -656,12 +561,12 @@ class MainActivity : ComponentActivity() {
                                                 border = BorderStroke(1.dp, Color(0xFF454545))
                                             ) {
                                                 Column(Modifier.padding(6.dp), verticalArrangement = Arrangement.spacedBy(5.dp)) {
-                                                    Box(Modifier.fillMaxWidth().aspectRatio(if (scraperSystem == "Nintendo_Switch") 1f else 0.72f).clip(RoundedCornerShape(5.dp)).background(Color(0xFF171717)), contentAlignment = Alignment.Center) {
-                                                        if (preview.value != null) androidx.compose.foundation.Image(bitmap = preview.value!!, contentDescription = result.first, contentScale = if (scraperSystem == "Nintendo_Switch") ContentScale.Fit else ContentScale.Crop, modifier = Modifier.fillMaxSize())
+                                                    Box(Modifier.fillMaxWidth().aspectRatio(1f).clip(RoundedCornerShape(5.dp)).background(Color(0xFF171717)), contentAlignment = Alignment.Center) {
+                                                        if (preview.value != null) androidx.compose.foundation.Image(bitmap = preview.value!!, contentDescription = result.first, contentScale = ContentScale.Fit, modifier = Modifier.fillMaxSize())
                                                         else Icon(Icons.Rounded.SportsEsports, null, tint = Muted, modifier = Modifier.size(28.dp))
                                                     }
                                                     Text(result.first.substringBeforeLast("."), color = Color.White, fontSize = 9.sp, maxLines = 2, overflow = TextOverflow.Ellipsis)
-                                                    Text(if (scraperSystem == "Nintendo_Switch") "APLICAR ÍCONE" else "APLICAR CAPA", color = Color(0xFF35BCEB), fontSize = 9.sp, fontWeight = FontWeight.Bold)
+                                                    Text("APLICAR ÍCONE", color = Color(0xFF35BCEB), fontSize = 9.sp, fontWeight = FontWeight.Bold)
                                                 }
                                             }
                                         }
@@ -671,7 +576,7 @@ class MainActivity : ComponentActivity() {
                         }
                         Divider(color = Color(0xFF555555), modifier = Modifier.padding(top = 10.dp))
                         Row(Modifier.fillMaxWidth().padding(top = 7.dp), verticalAlignment = Alignment.CenterVertically) {
-                            Text("FONTE: LIBRETRO THUMBNAILS • SEM API KEY", color = Muted, fontSize = 9.sp)
+                            Text("FONTE: CATÁLOGO DE ÍCONES NINTENDO SWITCH", color = Muted, fontSize = 9.sp)
                             Spacer(Modifier.weight(1f))
                             TextButton(onClick = { scraperOpen = false }) { Text("VOLTAR", color = Color(0xFF35BCEB), fontWeight = FontWeight.Bold) }
                         }
@@ -685,14 +590,14 @@ class MainActivity : ComponentActivity() {
             properties = androidx.compose.ui.window.DialogProperties(usePlatformDefaultWidth = false, decorFitsSystemWindows = false)
         ) {
             BoxWithConstraints(Modifier.fillMaxSize().background(Color(0x99000000)), contentAlignment = Alignment.Center) {
-                val compactEdit = maxWidth < 900.dp || maxHeight < 600.dp
+                val compactEdit = maxWidth < 1100.dp || maxHeight < 700.dp
                 Surface(
                     color = Color(0xFF202020),
                     shape = RoundedCornerShape(18.dp),
                     border = BorderStroke(2.dp, Color(0xFF35BCEB)),
-                    modifier = Modifier.fillMaxSize()
+                    modifier = Modifier.fillMaxWidth(0.68f).fillMaxHeight(0.68f)
                 ) {
-                    Column(Modifier.fillMaxSize().padding(if (compactEdit) 12.dp else 20.dp)) {
+                    Column(Modifier.fillMaxSize().padding(if (compactEdit) 8.dp else 14.dp)) {
                         Row(Modifier.fillMaxWidth(), verticalAlignment = Alignment.CenterVertically) {
                             Icon(Icons.Rounded.Tune, null, tint = Color(0xFF35BCEB), modifier = Modifier.size(25.dp))
                             Spacer(Modifier.width(10.dp))
