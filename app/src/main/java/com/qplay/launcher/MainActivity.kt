@@ -55,6 +55,12 @@ import androidx.documentfile.provider.DocumentFile
 import com.qplay.launcher.ui.QPlayTheme
 import kotlinx.coroutines.Dispatchers
 import kotlinx.coroutines.withContext
+import org.json.JSONArray
+import java.io.FileOutputStream
+import java.io.File
+import java.net.URL
+import java.net.HttpURLConnection
+import kotlinx.coroutines.launch
 
 private data class InstalledGame(val name: String, val packageName: String, val isGame: Boolean)
 private data class NupGame(val name: String, val uri: Uri, val fileName: String)
@@ -374,6 +380,13 @@ class MainActivity : ComponentActivity() {
         var draftGroup by remember(key) { mutableStateOf(initialGroup) }
         var groupName by remember(key) { mutableStateOf(initialGroup) }
         var editOpen by remember { mutableStateOf(false) }
+        var scraperOpen by remember { mutableStateOf(false) }
+        var scraperQuery by remember { mutableStateOf(originalName) }
+        var scraperSystem by remember { mutableStateOf("Nintendo_-_Nintendo_64") }
+        var scraperBusy by remember { mutableStateOf(false) }
+        var scraperStatus by remember { mutableStateOf("") }
+        var scraperResults by remember { mutableStateOf<List<Pair<String, String>>>(emptyList()) }
+        val scraperScope = rememberCoroutineScope()
         var title by remember(key) { mutableStateOf(prefs.getString("edit_name_" + key, originalName) ?: originalName) }
         var coverUri by remember(key) { mutableStateOf(prefs.getString("cover_" + key, null)?.let(Uri::parse)) }
         var draftTitle by remember { mutableStateOf(title) }
@@ -394,6 +407,103 @@ class MainActivity : ComponentActivity() {
                 if (isFavorite) Icon(Icons.Rounded.Favorite, "Favorito", tint = Color(0xFFE65B68), modifier = Modifier.align(Alignment.TopEnd).padding(8.dp))
             }
         }
+
+        if (scraperOpen) Dialog(onDismissRequest = { scraperOpen = false }) {
+            Surface(color = Color(0xFF202020), shape = RoundedCornerShape(20.dp), border = BorderStroke(2.dp, Color(0xFF35BCEB)), modifier = Modifier.fillMaxWidth()) {
+                Column(Modifier.padding(20.dp), verticalArrangement = Arrangement.spacedBy(10.dp)) {
+                    Text("BUSCAR CAPA — LIBRETRO", color = Color(0xFF35BCEB), fontSize = 18.sp, fontWeight = FontWeight.ExtraBold)
+                    OutlinedTextField(value = scraperQuery, onValueChange = { scraperQuery = it }, label = { Text("Nome do jogo") }, singleLine = true, modifier = Modifier.fillMaxWidth())
+                    Text("Console / sistema", color = Color.White, fontSize = 12.sp, fontWeight = FontWeight.SemiBold)
+                    var systemMenu by remember { mutableStateOf(false) }
+                    Box {
+                        OutlinedButton(onClick = { systemMenu = true }) { Text(scraperSystem.replace("_", " "), color = Color.White) }
+                        DropdownMenu(expanded = systemMenu, onDismissRequest = { systemMenu = false }) {
+                            listOf("Nintendo_-_Nintendo_64","Nintendo_-_Game_Boy_Advance","Nintendo_-_Nintendo_Entertainment_System","Nintendo_-_Super_Nintendo_Entertainment_System","Nintendo_-_GameCube","Nintendo_-_Wii","Sony_-_PlayStation","Sony_-_PlayStation_2","Sega_-_Mega_Drive_-_Genesis","Sega_-_Dreamcast").forEach { system ->
+                                DropdownMenuItem(text = { Text(system.replace("_", " ")) }, onClick = { scraperSystem = system; systemMenu = false })
+                            }
+                        }
+                    }
+                    Button(enabled = scraperQuery.isNotBlank() && !scraperBusy, onClick = {
+                        scraperBusy = true
+                        scraperStatus = "Consultando catálogo público…"
+                        scraperResults = emptyList()
+                        scraperScope.launch {
+                            try {
+                                val matches = withContext(Dispatchers.IO) {
+                                    val api = URL("https://api.github.com/repos/libretro-thumbnails/" + scraperSystem + "/contents/Named_Boxarts")
+                                    val conn = api.openConnection() as HttpURLConnection
+                                    conn.connectTimeout = 15000
+                                    conn.readTimeout = 20000
+                                    conn.setRequestProperty("Accept", "application/vnd.github+json")
+                                    val body = conn.inputStream.bufferedReader().use { it.readText() }
+                                    conn.disconnect()
+                                    val array = JSONArray(body)
+                                    val query = scraperQuery.trim().lowercase().replace(Regex("[^a-z0-9 ]"), "").replace(Regex("\\s+"), " ")
+                                    val words = query.split(" ").filter { it.length > 1 }
+                                    val scored = mutableListOf<Triple<Int, String, String>>()
+                                    for (i in 0 until array.length()) {
+                                        val item = array.getJSONObject(i)
+                                        val name = item.optString("name")
+                                        val clean = name.substringBeforeLast(".").lowercase().replace(Regex("[^a-z0-9 ]"), " ").replace(Regex("\\s+"), " ").trim()
+                                        val score = words.count { clean.contains(it) }
+                                        if (score > 0) {
+                                            val download = item.optString("download_url")
+                                            if (download.startsWith("https://")) scored.add(Triple(score, name, download))
+                                        }
+                                    }
+                                    scored.sortedByDescending { it.first }.take(15).map { it.second to it.third }
+                                }
+                                scraperResults = matches
+                                scraperStatus = if (matches.isEmpty()) "Nenhuma capa encontrada. Tente outro nome ou console." else "${matches.size} capas encontradas. Selecione uma para aplicar."
+                            } catch (e: Exception) {
+                                scraperStatus = "Falha na busca. Verifique a conexão e tente novamente."
+                            }
+                            scraperBusy = false
+                        }
+                    }, colors = ButtonDefaults.buttonColors(containerColor = Color(0xFF35BCEB))) {
+                        Text(if (scraperBusy) "PESQUISANDO…" else "PESQUISAR CAPAS", color = Color.Black)
+                    }
+                    Text(scraperStatus, color = Muted, fontSize = 11.sp)
+                    Column(Modifier.heightIn(max = 260.dp).verticalScroll(rememberScrollState()), verticalArrangement = Arrangement.spacedBy(6.dp)) {
+                        scraperResults.forEach { result ->
+                            Surface(onClick = {
+                                scraperBusy = true
+                                scraperStatus = "Baixando capa…"
+                                scraperScope.launch {
+                                    try {
+                                        val localUri = withContext(Dispatchers.IO) {
+                                            val conn = URL(result.second).openConnection()
+                                            conn.connectTimeout = 15000
+                                            conn.readTimeout = 25000
+                                            val bitmap = BitmapFactory.decodeStream(conn.getInputStream()) ?: throw IllegalStateException("Imagem inválida")
+                                            val file = File(cacheDir, "qplay-cover-" + key.hashCode() + ".png")
+                                            FileOutputStream(file).use { bitmap.compress(android.graphics.Bitmap.CompressFormat.PNG, 100, it) }
+                                            Uri.fromFile(file)
+                                        }
+                                        coverUri = localUri
+                                        prefs.edit().putString("cover_" + key, localUri.toString()).apply()
+                                        scraperOpen = false
+                                        android.widget.Toast.makeText(this@MainActivity, "Capa aplicada ao jogo!", android.widget.Toast.LENGTH_SHORT).show()
+                                    } catch (e: Exception) {
+                                        scraperStatus = "Não foi possível baixar essa imagem."
+                                    }
+                                    scraperBusy = false
+                                }
+                            }, color = Color(0xFF2D2D2D), shape = RoundedCornerShape(8.dp), modifier = Modifier.fillMaxWidth()) {
+                                Row(Modifier.padding(10.dp), verticalAlignment = Alignment.CenterVertically) {
+                                    Icon(Icons.Rounded.Image, null, tint = Color(0xFF35BCEB))
+                                    Spacer(Modifier.width(10.dp))
+                                    Text(result.first, color = Color.White, fontSize = 11.sp, maxLines = 2, overflow = TextOverflow.Ellipsis)
+                                }
+                            }
+                        }
+                    }
+                    Text("Fonte pública Libretro. A disponibilidade depende do console selecionado.", color = Muted, fontSize = 10.sp)
+                    TextButton(onClick = { scraperOpen = false }, modifier = Modifier.align(Alignment.End)) { Text("FECHAR", color = Color(0xFF35BCEB)) }
+                }
+            }
+        }
+
         if (editOpen) Dialog(onDismissRequest = { editOpen = false }) {
             Surface(color = Color(0xFF202020), shape = RoundedCornerShape(22.dp), border = BorderStroke(2.dp, Color(0xFF35BCEB)), modifier = Modifier.fillMaxWidth()) {
                 Column(Modifier.padding(22.dp), verticalArrangement = Arrangement.spacedBy(14.dp)) {
@@ -408,10 +518,17 @@ class MainActivity : ComponentActivity() {
                         }
                         Column(Modifier.weight(1f), verticalArrangement = Arrangement.spacedBy(6.dp)) {
                             Text(title, color = Color.White, fontWeight = FontWeight.Bold, maxLines = 2, overflow = TextOverflow.Ellipsis)
-                            OutlinedButton(onClick = { picker.launch(arrayOf("image/*")) }, border = BorderStroke(1.dp, Color(0xFF35BCEB)), contentPadding = PaddingValues(horizontal = 12.dp, vertical = 7.dp)) {
-                                Icon(Icons.Rounded.Image, null, tint = Color(0xFF35BCEB), modifier = Modifier.size(17.dp))
-                                Spacer(Modifier.width(7.dp))
-                                Text(if (coverUri == null) "ADICIONAR CAPA" else "TROCAR CAPA", color = Color(0xFF35BCEB), fontSize = 10.sp, fontWeight = FontWeight.Bold)
+                            Column(verticalArrangement = Arrangement.spacedBy(7.dp)) {
+                                OutlinedButton(onClick = { scraperQuery = title; scraperOpen = true; scraperStatus = ""; scraperResults = emptyList() }, border = BorderStroke(1.dp, Color(0xFF35BCEB)), contentPadding = PaddingValues(horizontal = 12.dp, vertical = 7.dp)) {
+                                    Icon(Icons.Rounded.Search, null, tint = Color(0xFF35BCEB), modifier = Modifier.size(17.dp))
+                                    Spacer(Modifier.width(7.dp))
+                                    Text("BUSCAR CAPA ONLINE", color = Color(0xFF35BCEB), fontSize = 10.sp, fontWeight = FontWeight.Bold)
+                                }
+                                OutlinedButton(onClick = { picker.launch(arrayOf("image/*")) }, border = BorderStroke(1.dp, Color(0xFF35BCEB)), contentPadding = PaddingValues(horizontal = 12.dp, vertical = 7.dp)) {
+                                    Icon(Icons.Rounded.Image, null, tint = Color(0xFF35BCEB), modifier = Modifier.size(17.dp))
+                                    Spacer(Modifier.width(7.dp))
+                                    Text(if (coverUri == null) "ESCOLHER DA GALERIA" else "TROCAR CAPA", color = Color(0xFF35BCEB), fontSize = 10.sp, fontWeight = FontWeight.Bold)
+                                }
                             }
                         }
                     }
