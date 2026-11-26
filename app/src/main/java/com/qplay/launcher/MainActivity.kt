@@ -252,7 +252,7 @@ class MainActivity : ComponentActivity() {
                                 val compact = maxWidth < 820.dp || maxHeight < 460.dp
                                 val sideWidth = if (compact) 132.dp else (maxWidth * 0.22f).coerceIn(180.dp, 230.dp)
                                 val outerPad = if (compact) 8.dp else 16.dp
-                                Column(Modifier.fillMaxSize().background(Bg).padding(horizontal = outerPad, vertical = if (compact) 8.dp else 12.dp)) {
+                                Column(Modifier.fillMaxSize().background(Bg).padding(horizontal = if (compact) 6.dp else 10.dp, vertical = 4.dp)) {
                                     Row(Modifier.fillMaxWidth().heightIn(min = 42.dp), verticalAlignment = Alignment.CenterVertically) {
                                         Icon(Icons.Rounded.Settings, null, tint = Color(0xFF35BCEB), modifier = Modifier.size(if (compact) 22.dp else 28.dp))
                                         Spacer(Modifier.width(8.dp))
@@ -260,7 +260,7 @@ class MainActivity : ComponentActivity() {
                                         TextButton(onClick = { settingsOpen = false }, contentPadding = PaddingValues(horizontal = 8.dp, vertical = 4.dp)) { Text("VOLTAR", color = Color(0xFF35BCEB), fontWeight = FontWeight.Bold, fontSize = if (compact) 11.sp else 13.sp) }
                                     }
                                     Divider(color = Color(0xFF777777))
-                                    Row(Modifier.weight(1f).fillMaxWidth().padding(vertical = 8.dp)) {
+                                    Row(Modifier.weight(1f).fillMaxWidth()) {
                                         Column(Modifier.width(sideWidth).fillMaxHeight().verticalScroll(rememberScrollState()), verticalArrangement = Arrangement.spacedBy(2.dp)) {
                                             listOf("Perfil", "Aparência", "Biblioteca", "Imagens", "Emuladores", "Controles", "Sistema").forEach { category ->
                                                 val active = settingsCategory == category
@@ -342,7 +342,7 @@ class MainActivity : ComponentActivity() {
                         val shelfContentWidth = tileSize * totalItems.toFloat() + shelfSpacing * (totalItems - 1).toFloat()
                         val shelfSidePadding = if (shelfContentWidth <= shelfWidth) (shelfWidth - shelfContentWidth) / 2f else shelfWidth * 0.045f
                         Spacer(Modifier.weight(1f))
-                        Text(focusedGameName.uppercase(), color = Color(0xFF35BCEB), fontSize = 19.sp, fontWeight = FontWeight.Medium, letterSpacing = 1.0.sp, maxLines = 1, overflow = TextOverflow.Ellipsis, textAlign = TextAlign.Start, modifier = Modifier.fillMaxWidth().padding(start = shelfSidePadding))
+                        Text(focusedGameName.uppercase(), color = Color(0xFF35BCEB), fontSize = 15.sp, fontWeight = FontWeight.SemiBold, letterSpacing = 0.5.sp, maxLines = 1, overflow = TextOverflow.Ellipsis, textAlign = TextAlign.Start, modifier = Modifier.fillMaxWidth().padding(start = shelfSidePadding))
                         Spacer(Modifier.height(16.dp))
                         LazyRow(
                             contentPadding = PaddingValues(horizontal = shelfSidePadding),
@@ -465,14 +465,14 @@ class MainActivity : ComponentActivity() {
                         }
                         Divider(color = Color(0xFF555555), modifier = Modifier.padding(top = 8.dp, bottom = 12.dp))
                         Row(Modifier.weight(1f).fillMaxWidth(), horizontalArrangement = Arrangement.spacedBy(14.dp)) {
-                            Column(Modifier.fillMaxHeight().fillMaxWidth(if (compact) 0.38f else 0.31f).verticalScroll(rememberScrollState()), verticalArrangement = Arrangement.spacedBy(10.dp)) {
+                            Column(Modifier.weight(1f).fillMaxHeight().fillMaxWidth(if (compact) 0.38f else 0.31f).verticalScroll(rememberScrollState()).imePadding(), verticalArrangement = Arrangement.spacedBy(7.dp)) {
                                 Text("JOGO", color = Color.White, fontSize = 11.sp, fontWeight = FontWeight.Bold, letterSpacing = 1.sp)
                                 OutlinedTextField(
                                     value = scraperQuery,
                                     onValueChange = { scraperQuery = it },
                                     label = { Text("Nome do jogo") },
-                                    singleLine = false,
-                                    maxLines = 2,
+                                    singleLine = true,
+                                    maxLines = 1,
                                     modifier = Modifier.fillMaxWidth()
                                 )
                                 Text("PLATAFORMA", color = Color.White, fontSize = 11.sp, fontWeight = FontWeight.Bold, letterSpacing = 1.sp)
