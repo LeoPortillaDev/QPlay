@@ -106,6 +106,7 @@ class MainActivity : ComponentActivity() {
         var tab by remember { mutableStateOf("Biblioteca") }
         var scanning by remember { mutableStateOf(false) }
         var refreshToken by remember { mutableIntStateOf(0) }
+        var settingsOpen by remember { mutableStateOf(false) }
         var scanMessage by remember { mutableStateOf("Escolha a pasta onde estão seus arquivos .nup") }
         val peanuts = peanutsPackage()
 
@@ -137,7 +138,7 @@ class MainActivity : ComponentActivity() {
             }
         }
 
-        BackHandler(enabled = tab != "Biblioteca") { tab = "Biblioteca" }
+        BackHandler(enabled = settingsOpen || tab != "Biblioteca") { if (settingsOpen) settingsOpen = false else tab = "Biblioteca" }
 
         Column(Modifier.fillMaxSize().background(Bg).padding(horizontal = 34.dp, vertical = 22.dp)) {
             Row(verticalAlignment = Alignment.CenterVertically) {
@@ -151,6 +152,14 @@ class MainActivity : ComponentActivity() {
                 }
                 Spacer(Modifier.weight(1f))
                 Text(if (peanuts != null) "PEANUTS CONECTADO" else "PEANUTS NÃO DETECTADO", color = if (peanuts != null) Color(0xFF8FC6A0) else Color(0xFFE2A09A), fontSize = 10.sp, fontWeight = FontWeight.Bold, letterSpacing = 1.sp)
+                Box {
+                    IconButton(onClick = { settingsOpen = true }) { Icon(Icons.Rounded.MoreVert, "Configurações", tint = Color.White, modifier = Modifier.size(30.dp)) }
+                    DropdownMenu(expanded = settingsOpen, onDismissRequest = { settingsOpen = false }) {
+                        DropdownMenuItem(text = { Text("Escolher pasta de jogos") }, leadingIcon = { Icon(Icons.Rounded.FolderOpen, null) }, onClick = { settingsOpen = false; folderPicker.launch(folderUri) })
+                        DropdownMenuItem(text = { Text("Aplicativos") }, leadingIcon = { Icon(Icons.Rounded.Apps, null) }, onClick = { settingsOpen = false; tab = "Aplicativos" })
+                        DropdownMenuItem(text = { Text("Atualizar biblioteca") }, leadingIcon = { Icon(Icons.Rounded.Refresh, null) }, onClick = { settingsOpen = false; refreshToken++; apps = installedApps() })
+                    }
+                }
             }
             Spacer(Modifier.height(22.dp))
             Row(verticalAlignment = Alignment.CenterVertically) {
