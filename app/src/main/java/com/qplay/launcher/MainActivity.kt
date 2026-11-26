@@ -111,14 +111,14 @@ class MainActivity : ComponentActivity() {
         val prefs = remember { getSharedPreferences("qplay_library", MODE_PRIVATE) }
         var folderUri by remember { mutableStateOf(prefs.getString("rom_folder_uri", null)?.let(Uri::parse)) }
         var games by remember { mutableStateOf<List<NupGame>>(emptyList()) }
-        var apps by remember { mutableStateOf(installedApps()) }
+        var apps by remember { mutableStateOf<List<InstalledGame>>(emptyList()) }
         var tab by remember { mutableStateOf("Biblioteca") }
         var scanning by remember { mutableStateOf(false) }
         var refreshToken by remember { mutableIntStateOf(0) }
         var settingsOpen by remember { mutableStateOf(false) }
         var selectedApps by remember { mutableStateOf(prefs.getStringSet("selected_apps", emptySet()).orEmpty()) }
         var scanMessage by remember { mutableStateOf("Escolha a pasta onde estão seus arquivos .nup") }
-        val peanuts = peanutsPackage()
+        var peanuts by remember { mutableStateOf<String?>(null) }
 
         val folderPicker = rememberLauncherForActivityResult(ActivityResultContracts.OpenDocumentTree()) { uri ->
             if (uri != null) {
@@ -131,6 +131,8 @@ class MainActivity : ComponentActivity() {
                 }
             }
         }
+
+        LaunchedEffect(Unit) { withContext(Dispatchers.IO) { val discoveredApps = installedApps(); val discoveredPeanuts = peanutsPackage(); withContext(Dispatchers.Main) { apps = discoveredApps; peanuts = discoveredPeanuts } } }
 
         LaunchedEffect(folderUri, refreshToken) {
             val root = folderUri
@@ -166,13 +168,7 @@ class MainActivity : ComponentActivity() {
                     Spacer(Modifier.width(12.dp))
                     Text("QPLAY", color = Color.White, fontSize = 19.sp, fontWeight = FontWeight.ExtraBold, letterSpacing = 2.2.sp)
                     Spacer(Modifier.weight(1f))
-                    Column(horizontalAlignment = Alignment.End) {
-                        Text(if (peanuts != null) "PEANUTS CONECTADO" else "PEANUTS DESCONECTADO",
-                            color = if (peanuts != null) Color(0xFF8FC6A0) else Color(0xFFE2A09A),
-                            fontSize = 9.sp, fontWeight = FontWeight.Bold, letterSpacing = 1.sp)
-                        Text("$totalItems ITENS NA BIBLIOTECA", color = Muted, fontSize = 9.sp)
-                    }
-                    Spacer(Modifier.width(12.dp))
+
                     Box {
                         IconButton(onClick = { settingsOpen = true }) {
                             Icon(Icons.Rounded.Menu, "Menu", tint = Color.White, modifier = Modifier.size(29.dp))
@@ -203,17 +199,7 @@ class MainActivity : ComponentActivity() {
                         }
                     } else {
                         var focusedGameName by remember { mutableStateOf(games.firstOrNull()?.name ?: libraryApps.firstOrNull()?.name.orEmpty()) }
-                        Spacer(Modifier.weight(0.16f))
-                        // The selected title occupies its own band, as on a console home screen.
-                        Column(Modifier.fillMaxWidth(), horizontalAlignment = Alignment.CenterHorizontally) {
-                            Text(focusedGameName.uppercase(), color = Color.White, fontSize = 23.sp,
-                                fontWeight = FontWeight.Medium, letterSpacing = 1.4.sp,
-                                maxLines = 1, overflow = TextOverflow.Ellipsis)
-                            Spacer(Modifier.height(5.dp))
-                            Text("BIBLIOTECA DE JOGOS", color = Muted, fontSize = 9.sp,
-                                fontWeight = FontWeight.Bold, letterSpacing = 2.4.sp)
-                        }
-                        Spacer(Modifier.weight(0.16f))
+                        Spacer(Modifier.weight(1f))
                         // A single continuous horizontal shelf; side tiles remain visible.
                         LazyRow(
                             contentPadding = PaddingValues(horizontal = (this@BoxWithConstraints.maxWidth - tileSize) / 2),
@@ -230,7 +216,7 @@ class MainActivity : ComponentActivity() {
                                     { launchAndroidApp(app.packageName) }, { focusedGameName = it })
                             }
                         }
-                        Spacer(Modifier.weight(0.18f))
+                        Spacer(Modifier.weight(1f))
                     }
                 } else {
                     Column(Modifier.weight(1f).fillMaxWidth().padding(top = 24.dp)) {
@@ -249,26 +235,7 @@ class MainActivity : ComponentActivity() {
                     }
                 }
 
-                // Console-style command strip anchored to the bottom edge.
-                if (tab == "Biblioteca") {
-                    Row(Modifier.fillMaxWidth().padding(top = 10.dp), verticalAlignment = Alignment.CenterVertically) {
-                        Row(verticalAlignment = Alignment.CenterVertically, horizontalArrangement = Arrangement.spacedBy(7.dp)) {
-                            Surface(color = Color(0xFF303846), shape = RoundedCornerShape(50)) {
-                                Text("A", color = Color.White, fontSize = 10.sp, fontWeight = FontWeight.Bold, modifier = Modifier.padding(horizontal = 8.dp, vertical = 4.dp))
-                            }
-                            Text("ABRIR", color = Muted, fontSize = 9.sp, fontWeight = FontWeight.Bold, letterSpacing = 1.sp)
-                        }
-                        Spacer(Modifier.width(18.dp))
-                        Row(verticalAlignment = Alignment.CenterVertically, horizontalArrangement = Arrangement.spacedBy(7.dp)) {
-                            Surface(color = Color(0xFF303846), shape = RoundedCornerShape(50)) {
-                                Text("＋", color = Color.White, fontSize = 10.sp, fontWeight = FontWeight.Bold, modifier = Modifier.padding(horizontal = 7.dp, vertical = 4.dp))
-                            }
-                            Text("ADICIONAR JOGOS NO MENU", color = Muted, fontSize = 9.sp, fontWeight = FontWeight.Bold, letterSpacing = .7.sp)
-                        }
-                        Spacer(Modifier.weight(1f))
-                        Text(scanMessage.uppercase(), color = Muted, fontSize = 8.sp, maxLines = 1, overflow = TextOverflow.Ellipsis)
-                    }
-                }
+
             }
         }
     }
