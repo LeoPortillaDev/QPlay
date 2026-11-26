@@ -494,42 +494,73 @@ class MainActivity : ComponentActivity() {
                                                             val code = conn.responseCode
                                                             val stream = if (code in 200..299) conn.inputStream else conn.errorStream
                                                             val body = stream?.bufferedReader()?.use { it.readText() }.orEmpty()
-                                                            if (code !in 200..299) throw IllegalStateException("Catálogo respondeu HTTP $code")
+                                                            if (code !in 200..299) {
+                                                                val detail = try { org.json.JSONObject(body).optString("message") } catch (_: Exception) { "" }
+                                                                throw IllegalStateException("GitHub HTTP $code" + if (detail.isBlank()) "" else ": $detail")
+                                                            }
                                                             return body
                                                         } finally { conn.disconnect() }
                                                     }
                                                     val repository = org.json.JSONObject(getJson(base))
                                                     val branch = repository.optString("default_branch").ifBlank { "master" }
-                                                    val treeJson = org.json.JSONObject(getJson("$base/git/trees/$branch?recursive=1"))
+                                                    val encodedBranch = Uri.encode(branch)
+                                                    val treeJson = org.json.JSONObject(getJson("$base/git/trees/$encodedBranch?recursive=1"))
                                                     val tree = treeJson.optJSONArray("tree") ?: JSONArray()
-                                                    val query = scraperQuery.trim().lowercase()
-                                                        .replace(Regex("[^a-z0-9 ]"), " ")
-                                                        .replace(Regex("\\s+"), " ").trim()
-                                                    val words = query.split(" ").filter { it.length > 1 }
-                                                    val scored = mutableListOf<Triple<Int, String, String>>()
+                                                    val imagePaths = mutableListOf<String>()
                                                     for (i in 0 until tree.length()) {
                                                         val item = tree.optJSONObject(i) ?: continue
                                                         val path = item.optString("path")
-                                                        if (!path.startsWith("Named_Boxarts/")) continue
-                                                        if (!path.substringAfterLast('/').contains('.')) continue
-                                                        val name = path.substringAfterLast('/')
-                                                        val clean = name.substringBeforeLast(".").lowercase()
-                                                            .replace(Regex("[^a-z0-9 ]"), " ")
-                                                            .replace(Regex("\\s+"), " ").trim()
-                                                        val score = words.count { clean.contains(it) }
-                                                        if (score > 0) {
-                                                            val encodedPath = Uri.encode(path, "/")
-                                                            val download = "https://raw.githubusercontent.com/libretro-thumbnails/$scraperSystem/$branch/$encodedPath"
-                                                            scored.add(Triple(score, name, download))
+                                                        if (path.substringBefore('/').equals("Named_Boxarts", true) &&
+                                                            path.substringAfterLast('/').contains('.') &&
+                                                            item.optString("type") == "blob") imagePaths.add(path)
+                                                    }
+                                                    // GitHub may truncate large recursive trees. In that case, list the
+                                                    // artwork directory directly instead of silently searching partial data.
+                                                    if (treeJson.optBoolean("truncated") || imagePaths.isEmpty()) {
+                                                        val contentsUrl = "$base/contents/Named_Boxarts?ref=$encodedBranch"
+                                                        val contents = JSONArray(getJson(contentsUrl))
+                                                        for (i in 0 until contents.length()) {
+                                                            val item = contents.optJSONObject(i) ?: continue
+                                                            val path = item.optString("path")
+                                                            val type = item.optString("type")
+                                                            if (type == "file" && path.substringAfterLast('/').contains('.')) imagePaths.add(path)
                                                         }
                                                     }
-                                                    scored.sortedWith(compareByDescending<Triple<Int, String, String>> { it.first }
-                                                        .thenBy { it.second.length }).take(24).map { it.second to it.third }
+                                                    val normalizer = java.text.Normalizer.Form.NFD
+                                                    fun normalize(value: String): String =
+                                                        java.text.Normalizer.normalize(value.lowercase(), normalizer)
+                                                            .replace(Regex("\\p{M}+"), "")
+                                                            .replace(Regex("[^a-z0-9]+"), " ").trim()
+                                                    val query = normalize(scraperQuery)
+                                                    val words = query.split(Regex("\\s+")).filter { it.length > 1 }
+                                                    val scored = imagePaths.distinct().mapNotNull { path ->
+                                                        val name = path.substringAfterLast('/')
+                                                        val clean = normalize(name.substringBeforeLast("."))
+                                                        val nameWords = clean.split(Regex("\\s+")).filter { it.isNotBlank() }
+                                                        val matched = words.count { word -> nameWords.any { it == word } }
+                                                        val score = when {
+                                                            clean == query -> 1000
+                                                            query.isNotBlank() && clean.contains(query) -> 700 + matched
+                                                            matched > 0 -> matched * 10
+                                                            else -> 0
+                                                        }
+                                                        if (score == 0) null else {
+                                                            val encodedPath = path.split('/').joinToString("/") { Uri.encode(it) }
+                                                            val download = "https://raw.githubusercontent.com/libretro-thumbnails/$scraperSystem/$encodedBranch/$encodedPath"
+                                                            Triple(score, name, download)
+                                                        }
+                                                    }
+                                                    scored.sortedWith(
+                                                        compareByDescending<Triple<Int, String, String>> { it.first }
+                                                            .thenBy { it.second.length }
+                                                    ).take(40).map { it.second to it.third }
                                                 }
                                                 scraperResults = matches
-                                                scraperStatus = if (matches.isEmpty()) "Nenhuma capa encontrada neste console. Tente outro nome ou plataforma." else "${matches.size} capas encontradas."
+                                                scraperStatus = if (matches.isEmpty()) "Nenhuma capa correspondente neste console. Confira o nome e a plataforma selecionada." else "${matches.size} capas encontradas."
                                             } catch (e: Exception) {
-                                                scraperStatus = "Não foi possível consultar este catálogo. Verifique a conexão."
+                                                scraperStatus = e.message?.takeIf { it.contains("HTTP") }
+                                                    ?.let { "Falha no catálogo: $it" }
+                                                    ?: "Falha ao buscar capas. Verifique a internet e tente novamente."
                                             }
                                             scraperBusy = false
                                         }
