@@ -5,7 +5,6 @@ import android.content.Intent
 import android.content.pm.PackageManager
 import android.net.Uri
 import android.os.Bundle
-import android.provider.DocumentsContract
 import androidx.activity.ComponentActivity
 import androidx.activity.compose.setContent
 import androidx.activity.compose.BackHandler
@@ -35,6 +34,8 @@ import androidx.compose.ui.unit.dp
 import androidx.compose.ui.unit.sp
 import androidx.documentfile.provider.DocumentFile
 import com.qplay.launcher.ui.QPlayTheme
+import kotlinx.coroutines.Dispatchers
+import kotlinx.coroutines.withContext
 
 private data class InstalledGame(val name: String, val packageName: String, val isGame: Boolean)
 private data class NupGame(val name: String, val uri: Uri, val fileName: String)
@@ -118,7 +119,7 @@ class MainActivity : ComponentActivity() {
             if (root != null) {
                 scanning = true
                 scanMessage = "Procurando arquivos .nup…"
-                val found = with(kotlinx.coroutines.Dispatchers.IO) {
+                val found = withContext(Dispatchers.IO) {
                     scanNupFolder(root)
                 }
                 games = found
