@@ -63,10 +63,11 @@ class MainActivity : ComponentActivity() {
         @Suppress("DEPRECATION")
         window.decorView.systemUiVisibility = (android.view.View.SYSTEM_UI_FLAG_FULLSCREEN or android.view.View.SYSTEM_UI_FLAG_HIDE_NAVIGATION or android.view.View.SYSTEM_UI_FLAG_IMMERSIVE_STICKY)
         window.navigationBarColor = android.graphics.Color.rgb(11, 13, 18)
+        if (intent.getBooleanExtra("qplay_close_from_overlay", false)) { finish(); return }
         setContent { QPlayTheme { QPlayApp() } }
     }
 
-    private fun installedApps(): List<InstalledGame> {
+    override fun onNewIntent(intent: Intent) {\n        super.onNewIntent(intent)\n        if (intent.getBooleanExtra("qplay_close_from_overlay", false)) finish()\n    }\n\n    private fun installedApps(): List<InstalledGame> {
         val launcher = Intent(Intent.ACTION_MAIN).addCategory(Intent.CATEGORY_LAUNCHER)
         return packageManager.queryIntentActivities(launcher, PackageManager.MATCH_ALL)
             .mapNotNull { it.activityInfo?.applicationInfo }
@@ -180,7 +181,7 @@ class MainActivity : ComponentActivity() {
                         DropdownMenu(expanded = settingsOpen, onDismissRequest = { settingsOpen = false }) {
                             DropdownMenuItem(text = { Text("Selecionar pasta dos jogos") }, leadingIcon = { Icon(Icons.Rounded.FolderOpen, null) }, onClick = { settingsOpen = false; folderPicker.launch(folderUri) })
                             DropdownMenuItem(text = { Text("Escolher aplicativos") }, leadingIcon = { Icon(Icons.Rounded.Apps, null) }, onClick = { settingsOpen = false; tab = "Aplicativos" })
-                            DropdownMenuItem(text = { Text("Atualizar biblioteca") }, leadingIcon = { Icon(Icons.Rounded.Refresh, null) }, onClick = { settingsOpen = false; refreshToken++; apps = installedApps() })
+                            DropdownMenuItem(text = { Text("Permitir menu sobre outros apps") }, leadingIcon = { Icon(Icons.Rounded.Layers, null) }, onClick = { settingsOpen = false; startActivity(Intent(android.provider.Settings.ACTION_MANAGE_OVERLAY_PERMISSION, Uri.parse("package:$packageName"))) })\n                            DropdownMenuItem(text = { Text("Ativar combinação − + no controle") }, leadingIcon = { Icon(Icons.Rounded.Gamepad, null) }, onClick = { settingsOpen = false; startActivity(Intent(android.provider.Settings.ACTION_ACCESSIBILITY_SETTINGS)) })\n                            DropdownMenuItem(text = { Text("Atualizar biblioteca") }, leadingIcon = { Icon(Icons.Rounded.Refresh, null) }, onClick = { settingsOpen = false; refreshToken++; apps = installedApps() })
                         }
                     }
                 }
