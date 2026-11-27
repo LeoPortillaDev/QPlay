@@ -100,8 +100,8 @@ fun SwitchTextField(
             .onFocusChanged { focused = it.isFocused }
             .gamepadA(open)
             .clickable(interactionSource = remember { MutableInteractionSource() }, indication = null, onClick = open)
-            .background(Color.White, shape)
-            .border(if (focused) 3.dp else 1.dp, if (focused) SwitchColors.Cyan else Color(0xFFBDBDBD), shape)
+            .background(SwitchColors.Surface, shape)
+            .border(if (focused) 3.dp else 1.dp, if (focused) SwitchColors.Cyan else SwitchColors.Border, shape)
             .padding(horizontal = 14.dp, vertical = 9.dp)
     ) {
         Text(label, color = if (focused) SwitchColors.Teal else SwitchColors.Muted, fontSize = 11.sp, maxLines = 1)
