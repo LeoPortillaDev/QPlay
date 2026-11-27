@@ -91,9 +91,13 @@ import java.util.Locale
 /* Entrada por controle                                                 */
 /* ------------------------------------------------------------------ */
 
-/** Faz o botão A do controle (KEYCODE_BUTTON_A) funcionar como "clique", além de Enter/DPAD_CENTER. */
+/** Confirma o item em foco pelo botão A do controle, Enter ou centro do D-pad. */
 fun Modifier.gamepadA(onClick: () -> Unit): Modifier = this.onKeyEvent { ev ->
-    if (ev.key == Key.ButtonA) {
+    val confirm = ev.key == Key.ButtonA ||
+        ev.key == Key.Enter ||
+        ev.key == Key.NumPadEnter ||
+        ev.key == Key.DirectionCenter
+    if (confirm) {
         if (ev.type == KeyEventType.KeyUp) onClick()
         true
     } else false
