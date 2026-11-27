@@ -854,7 +854,7 @@ class MainActivity : ComponentActivity() {
                     focused = it.isFocused
                     if (it.isFocused) {
                         onFocused(title)
-                        playSoundEffect(SoundEffectConstants.NAVIGATION_RIGHT)
+                        playUiTone(ToneGenerator.TONE_PROP_BEEP2)
                     }
                 }
                 .onKeyEvent { ev ->
@@ -868,7 +868,7 @@ class MainActivity : ComponentActivity() {
                 .combinedClickable(
                     interactionSource = remember { MutableInteractionSource() },
                     indication = null,
-                    onClick = { playSoundEffect(SoundEffectConstants.CLICK); onClick() },
+                    onClick = { playUiTone(ToneGenerator.TONE_PROP_ACK); onClick() },
                     onLongClick = onLongClick
                 )
         ) {
