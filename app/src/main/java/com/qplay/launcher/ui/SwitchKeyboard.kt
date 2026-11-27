@@ -171,7 +171,7 @@ fun SwitchKeyboard(request: KeyboardRequest, onClose: () -> Unit) {
             .onKeyEvent { ev ->
                 val k = ev.key
                 val mapped = k == Key.ButtonB || k == Key.ButtonY || k == Key.ButtonX || k == Key.ButtonStart ||
-                    k == Key.ButtonL1 || k == Key.ButtonR1 || k == Key.ButtonThumbL
+                    k == Key.ButtonL1 || k == Key.ButtonR1 || k == Key.ButtonThumbLeft
                 if (mapped && ev.type == KeyEventType.KeyUp) {
                     when (k) {
                         Key.ButtonB -> backspace()
