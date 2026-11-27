@@ -58,7 +58,7 @@ object CoverCatalog {
         val connection = URL(CATALOG_URL).openConnection() as HttpURLConnection
         connection.connectTimeout = 15000
         connection.readTimeout = 45000
-        connection.setRequestProperty("User-Agent", "QPlay-Android")
+        connection.setRequestProperty("User-Agent", "Switch-Android")
         try {
             val code = connection.responseCode
             if (code !in 200..299) throw IllegalStateException("HTTP $code")
@@ -145,7 +145,7 @@ object CoverCatalog {
         val connection = URL(url).openConnection() as HttpURLConnection
         connection.connectTimeout = 12000
         connection.readTimeout = readTimeout
-        connection.setRequestProperty("User-Agent", "QPlay-Android")
+        connection.setRequestProperty("User-Agent", "Switch-Android")
         try {
             val code = connection.responseCode
             if (code !in 200..299) throw IllegalStateException("HTTP $code")

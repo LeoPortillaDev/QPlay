@@ -9,18 +9,11 @@
         <package android:name="dev.bananative.android" />
         <package android:name="dev.nxnative.android.play" />
     </queries>
-    <application android:icon="@mipmap/qplay_launcher" android:roundIcon="@mipmap/qplay_launcher" android:theme="@style/AppTheme" android:label="QPlay Hybrid" android:allowBackup="true" android:supportsRtl="true">
+    <application android:icon="@mipmap/qplay_launcher" android:roundIcon="@mipmap/qplay_launcher" android:theme="@style/AppTheme" android:label="Switch" android:allowBackup="true" android:supportsRtl="true">
         <activity android:name=".MainActivity" android:exported="true" android:screenOrientation="sensorLandscape">
-            <!-- Atalho normal do aplicativo -->
             <intent-filter>
                 <action android:name="android.intent.action.MAIN" />
                 <category android:name="android.intent.category.LAUNCHER" />
-            </intent-filter>
-            <!-- Candidato a HOME padrão do Android: o usuário ainda precisa escolhê-lo nas configurações do sistema -->
-            <intent-filter>
-                <action android:name="android.intent.action.MAIN" />
-                <category android:name="android.intent.category.HOME" />
-                <category android:name="android.intent.category.DEFAULT" />
             </intent-filter>
         </activity>
     </application>

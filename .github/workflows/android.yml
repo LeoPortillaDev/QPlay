@@ -1,11 +1,11 @@
-name: QPlay Android APK
+name: Switch Android APK
 
 on:
   push:
-    branches: [main, qplay-hybrid-experimental]
+    branches: [main]
   workflow_dispatch:
 
-# Evita acumular execuções da mesma branch.
+# Evita acumular execuções: uma nova compilação da main cancela a anterior.
 concurrency:
   group: qplay-android-${{ github.ref }}
   cancel-in-progress: true
@@ -38,7 +38,7 @@ jobs:
       - name: Upload APK artifact
         uses: actions/upload-artifact@v4
         with:
-          name: QPlay-debug-${{ github.run_number }}
+          name: Switch-debug-${{ github.run_number }}
           path: app/build/outputs/apk/debug/app-debug.apk
           if-no-files-found: error
           # APK temporário para teste: expira automaticamente em 3 dias.

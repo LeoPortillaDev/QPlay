@@ -453,7 +453,7 @@ class MainActivity : ComponentActivity() {
         // Botão B do controle = voltar
         CompositionLocalProvider(LocalSwitchKeyboard provides { req: KeyboardRequest -> keyboard = req }) {
         Box(Modifier.fillMaxSize().onKeyEvent { ev ->
-            if (ev.key == Key.ButtonB || ev.key == Key.Escape || ev.key == Key.Backspace) {
+            if (ev.key == Key.ButtonB) {
                 if (ev.type == KeyEventType.KeyUp) onBackPressedDispatcher.onBackPressed()
                 true
             } else false

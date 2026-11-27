@@ -54,7 +54,7 @@ import androidx.compose.ui.unit.sp
 import kotlinx.coroutines.delay
 
 /* ------------------------------------------------------------------ */
-/* Pedido de texto: qualquer tela abre o teclado do QPlay por aqui      */
+/* Pedido de texto: qualquer tela abre o teclado do Switch por aqui      */
 /* ------------------------------------------------------------------ */
 
 /**
@@ -133,7 +133,7 @@ private val KbHints = listOf(
 )
 
 /**
- * Teclado do QPlay. Toque ou direcional + A. Atalhos do controle: B apaga, Y espaço, X cancela,
+ * Teclado do Switch. Toque ou direcional + A. Atalhos do controle: B apaga, Y espaço, X cancela,
  * + (Start) confirma, L/R movem o cursor, clique do analógico esquerdo = maiúscula.
  * Ocupa a janela inteira (não é Dialog) e nunca abre o teclado do Android.
  */
@@ -171,7 +171,7 @@ fun SwitchKeyboard(request: KeyboardRequest, onClose: () -> Unit) {
             .onKeyEvent { ev ->
                 val k = ev.key
                 val mapped = k == Key.ButtonB || k == Key.ButtonY || k == Key.ButtonX || k == Key.ButtonStart ||
-                    k == Key.ButtonL1 || k == Key.ButtonR1 || k == Key.ButtonThumbLeft
+                    k == Key.ButtonL1 || k == Key.ButtonR1 || k == Key.ButtonThumbL
                 if (mapped && ev.type == KeyEventType.KeyUp) {
                     when (k) {
                         Key.ButtonB -> backspace()

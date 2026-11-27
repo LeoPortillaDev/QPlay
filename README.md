@@ -1,4 +1,4 @@
-# QPlay — Android prototype 0.1
+# Switch — Android prototype 0.1
 
 Aplicativo Android independente, inspirado na navegação de consoles, com foco inicial em celular e tablet Android em modo paisagem.
 
@@ -24,8 +24,8 @@ O botão de fechar nesta versão é apenas demonstrativo. O Android não permite
 1. Envie o conteúdo desta pasta para a raiz do repositório `LeoPortillaDev/QPlay` na branch `main`.
 2. Abra a aba **Actions** do repositório.
 3. Se necessário, habilite GitHub Actions.
-4. O workflow **QPlay Android APK** será executado a cada push na `main`, ou poderá ser iniciado manualmente.
-5. Ao terminar, abra a execução e baixe o artefato `QPlay-debug-...`.
+4. O workflow **Switch Android APK** será executado a cada push na `main`, ou poderá ser iniciado manualmente.
+5. Ao terminar, abra a execução e baixe o artefato `Switch-debug-...`.
 
 ## Configuração técnica
 - Android Gradle Plugin: 8.7.3

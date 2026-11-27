@@ -113,7 +113,7 @@ fun SettingsPage(
     peanutsStatus: String,
     version: String
 ) {
-    SwitchPage(title = "Configurações", subtitle = "QPlay $version", hints = BackOk) { u ->
+    SwitchPage(title = "Configurações", subtitle = "Switch $version", hints = BackOk) { u ->
         val first = remember { FocusRequester() }
         LaunchedEffect(Unit) { delay(80); runCatching { first.requestFocus() } }
         val body = (u.value * 0.032f).sp
@@ -136,7 +136,7 @@ fun SettingsPage(
                 Text(category, color = SwitchColors.Ink, fontSize = (u.value * 0.045f).sp, fontWeight = FontWeight.Medium)
                 when (category) {
                     "Perfil" -> {
-                        Text("Personalize sua identidade no QPlay.", color = SwitchColors.Muted, fontSize = body)
+                        Text("Personalize sua identidade no Switch.", color = SwitchColors.Muted, fontSize = body)
                         Row(verticalAlignment = Alignment.CenterVertically, horizontalArrangement = Arrangement.spacedBy(u * 0.04f)) {
                             Box(
                                 Modifier.size(u * 0.2f).shadow(2.dp, CircleShape).clip(CircleShape).background(Color(0xFF7FDDEB))
@@ -192,7 +192,7 @@ fun SettingsPage(
                     )
                     else -> {
                         Text(peanutsStatus, color = SwitchColors.Ink, fontSize = body)
-                        Text("Sons, animações e comportamento de inicialização do QPlay serão configurados aqui.", color = SwitchColors.Muted, fontSize = body)
+                        Text("Sons, animações e comportamento de inicialização do Switch serão configurados aqui.", color = SwitchColors.Muted, fontSize = body)
                     }
                 }
             }
