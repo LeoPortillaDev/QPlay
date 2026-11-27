@@ -1,11 +1,15 @@
 package com.qplay.launcher.ui
 
+import android.content.BroadcastReceiver
 import android.content.Context
 import android.content.Intent
 import android.content.IntentFilter
+import android.hardware.input.InputManager
 import android.net.ConnectivityManager
 import android.net.NetworkCapabilities
 import android.os.BatteryManager
+import android.os.Build
+import android.view.InputDevice
 import androidx.compose.animation.core.RepeatMode
 import androidx.compose.animation.core.animateDpAsState
 import androidx.compose.animation.core.animateFloat
@@ -47,6 +51,7 @@ import androidx.compose.material3.Icon
 import androidx.compose.material3.OutlinedTextFieldDefaults
 import androidx.compose.material3.Text
 import androidx.compose.runtime.Composable
+import androidx.compose.runtime.DisposableEffect
 import androidx.compose.runtime.LaunchedEffect
 import androidx.compose.runtime.getValue
 import androidx.compose.runtime.mutableStateOf
@@ -320,7 +325,7 @@ fun SwitchCircleButton(
                 .size(diameter)
                 .shadow(2.dp, CircleShape)
                 .clip(CircleShape)
-                .background(Color.White),
+                .background(SwitchColors.Surface),
             contentAlignment = Alignment.Center
         ) {
             Icon(icon, label, tint = tint, modifier = Modifier.size(diameter * 0.5f))
@@ -349,27 +354,70 @@ fun SwitchCircleButton(
 data class ButtonHint(val key: String, val label: String)
 
 @Composable
+private fun rememberHasGameController(): Boolean {
+    val context = LocalContext.current
+    var connected by remember {
+        mutableStateOf(
+            InputDevice.getDeviceIds().any { id ->
+                val device = InputDevice.getDevice(id)
+                device != null && !device.isVirtual &&
+                    (device.sources and InputDevice.SOURCE_GAMEPAD == InputDevice.SOURCE_GAMEPAD ||
+                     device.sources and InputDevice.SOURCE_JOYSTICK == InputDevice.SOURCE_JOYSTICK)
+            }
+        )
+    }
+    DisposableEffect(context) {
+        val receiver = object : BroadcastReceiver() {
+            override fun onReceive(context: Context?, intent: Intent?) {
+                connected = InputDevice.getDeviceIds().any { id ->
+                    val device = InputDevice.getDevice(id)
+                    device != null && !device.isVirtual &&
+                        (device.sources and InputDevice.SOURCE_GAMEPAD == InputDevice.SOURCE_GAMEPAD ||
+                         device.sources and InputDevice.SOURCE_JOYSTICK == InputDevice.SOURCE_JOYSTICK)
+                }
+            }
+        }
+        val filter = IntentFilter().apply {
+            addAction(InputManager.ACTION_DEVICE_ADDED)
+            addAction(InputManager.ACTION_DEVICE_REMOVED)
+            addAction(InputManager.ACTION_DEVICE_CHANGED)
+        }
+        if (Build.VERSION.SDK_INT >= 33) {
+            context.registerReceiver(receiver, filter, Context.RECEIVER_NOT_EXPORTED)
+        } else {
+            @Suppress("DEPRECATION")
+            context.registerReceiver(receiver, filter)
+        }
+        onDispose { runCatching { context.unregisterReceiver(receiver) } }
+    }
+    return connected
+}
+
+@Composable
 fun SwitchBottomBar(
     unit: Dp,
     hints: List<ButtonHint>,
     modifier: Modifier = Modifier,
     contentColor: Color = SwitchColors.Ink,
     badgeBg: Color = SwitchColors.Ink,
-    badgeFg: Color = Color(0xFFEBEBEB)
+    badgeFg: Color = SwitchColors.Bg
 ) {
+    val controllerConnected = rememberHasGameController()
     Row(modifier, verticalAlignment = Alignment.CenterVertically) {
-        // Indicador do controle (ícone + 4 luzes de jogador)
-        Column(verticalArrangement = Arrangement.spacedBy(unit * 0.006f)) {
-            repeat(4) { i ->
-                Box(
-                    Modifier
-                        .size(unit * 0.012f)
-                        .background(if (i == 0) SwitchColors.Green else Color(0xFFBDBDBD))
-                )
+        if (controllerConnected) {
+            // Indicador do controle só aparece quando um gamepad/joystick físico está conectado.
+            Column(verticalArrangement = Arrangement.spacedBy(unit * 0.006f)) {
+                repeat(4) { i ->
+                    Box(
+                        Modifier
+                            .size(unit * 0.012f)
+                            .background(if (i == 0) SwitchColors.Green else Color(0xFF888888))
+                    )
+                }
             }
+            Spacer(Modifier.width(unit * 0.012f))
+            Icon(Icons.Rounded.SportsEsports, "Controle conectado", tint = contentColor, modifier = Modifier.size(unit * 0.075f))
         }
-        Spacer(Modifier.width(unit * 0.012f))
-        Icon(Icons.Rounded.SportsEsports, "Controle", tint = contentColor, modifier = Modifier.size(unit * 0.075f))
         Spacer(Modifier.weight(1f))
         hints.forEachIndexed { index, hint ->
             if (index > 0) Spacer(Modifier.width(unit * 0.05f))
@@ -509,7 +557,7 @@ fun SwitchListItem(label: String, selected: Boolean, onClick: () -> Unit, modifi
             .onFocusChanged { focused = it.isFocused }
             .gamepadA(onClick)
             .clickable(interactionSource = remember { MutableInteractionSource() }, indication = null, onClick = onClick)
-            .background(if (selected || focused) Color.White else Color.Transparent, shape)
+            .background(if (selected || focused) SwitchColors.Selected else Color.Transparent, shape)
             .then(if (focused) Modifier.border(3.dp, SwitchColors.Cyan, shape) else Modifier)
             .padding(horizontal = 14.dp, vertical = 8.dp),
         verticalAlignment = Alignment.CenterVertically
