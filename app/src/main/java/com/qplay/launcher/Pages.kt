@@ -45,6 +45,7 @@ import androidx.compose.material3.CheckboxDefaults
 import androidx.compose.material3.CircularProgressIndicator
 import androidx.compose.material3.Icon
 import androidx.compose.material3.Text
+import androidx.compose.material3.Slider
 import androidx.compose.runtime.Composable
 import androidx.compose.runtime.LaunchedEffect
 import androidx.compose.runtime.getValue
@@ -115,7 +116,11 @@ fun SettingsPage(
     onFilter: (String) -> Unit,
     onClearCatalog: () -> Unit,
     peanutsStatus: String,
-    version: String
+    version: String,
+    uiSoundsEnabled: Boolean,
+    onUiSoundsEnabled: (Boolean) -> Unit,
+    uiSoundVolume: Float,
+    onUiSoundVolume: (Float) -> Unit
 ) {
     SwitchPage(title = "Configurações", subtitle = "Switch $version", hints = BackOk) { u ->
         val first = remember { FocusRequester() }
@@ -201,7 +206,20 @@ fun SettingsPage(
                     )
                     else -> {
                         Text(peanutsStatus, color = SwitchColors.Ink, fontSize = body)
-                        Text("Sons, animações e comportamento de inicialização do Switch serão configurados aqui.", color = SwitchColors.Muted, fontSize = body)
+                        Text("Efeitos sonoros da interface", color = SwitchColors.Muted, fontSize = body)
+                        SwitchButton(
+                            if (uiSoundsEnabled) "Sons ligados" else "Sons desligados",
+                            { onUiSoundsEnabled(!uiSoundsEnabled) },
+                            primary = uiSoundsEnabled
+                        )
+                        Text("Volume dos efeitos: ${uiSoundVolume.toInt()}%", color = SwitchColors.Muted, fontSize = body)
+                        Slider(
+                            value = uiSoundVolume,
+                            onValueChange = onUiSoundVolume,
+                            valueRange = 0f..100f,
+                            enabled = uiSoundsEnabled
+                        )
+                        Text("Cliques curtos ao navegar e confirmar, com volume ajustável.", color = SwitchColors.Muted, fontSize = (u.value * 0.026f).sp)
                     }
                 }
             }
@@ -256,19 +274,11 @@ fun EditPage(
     SwitchPage(title = "Personalizar jogo", subtitle = gameName, hints = BackOk) { u ->
         Column(Modifier.fillMaxSize()) {
             Row(
-                Modifier.fillMaxWidth().padding(horizontal = u * 0.025f, vertical = u * 0.008f),
-                verticalAlignment = Alignment.CenterVertically,
-                horizontalArrangement = Arrangement.spacedBy(u * 0.02f)
+                Modifier.fillMaxWidth().padding(horizontal = u * 0.025f, vertical = u * 0.012f),
+                verticalAlignment = Alignment.CenterVertically
             ) {
-                Box(
-                    Modifier.size(u * 0.082f).clip(RoundedCornerShape(2.dp)).background(SwitchColors.Card),
-                    contentAlignment = Alignment.Center
-                ) {
-                    if (cover != null) Image(bitmap = cover, contentDescription = "Capa do jogo", contentScale = ContentScale.Crop, modifier = Modifier.fillMaxSize())
-                    else Icon(Icons.Rounded.SportsEsports, null, tint = SwitchColors.Muted, modifier = Modifier.size(u * 0.045f))
-                }
-                Column(verticalArrangement = Arrangement.spacedBy(2.dp)) {
-                    Text(draftTitle.ifBlank { gameName }, color = SwitchColors.Ink, fontSize = (u.value * 0.036f).sp, maxLines = 1, overflow = TextOverflow.Ellipsis)
+                Column(verticalArrangement = Arrangement.spacedBy(3.dp)) {
+                    Text(draftTitle.ifBlank { gameName }, color = SwitchColors.Ink, fontSize = (u.value * 0.038f).sp, maxLines = 1, overflow = TextOverflow.Ellipsis)
                     Text("BIBLIOTECA DE JOGOS", color = SwitchColors.Muted, fontSize = (u.value * 0.019f).sp, letterSpacing = 1.sp)
                 }
                 Spacer(Modifier.weight(1f))
@@ -342,14 +352,13 @@ fun EditPage(
                             Row(
                                 Modifier.fillMaxWidth(),
                                 verticalAlignment = Alignment.CenterVertically,
-                                horizontalArrangement = Arrangement.spacedBy(u * 0.025f)
+                                horizontalArrangement = Arrangement.spacedBy(u * 0.055f)
                             ) {
-                                Box(Modifier.size(u * 0.24f).clip(RoundedCornerShape(2.dp)).background(SwitchColors.Card), contentAlignment = Alignment.Center) {
+                                Box(Modifier.size(u * 0.29f).clip(RoundedCornerShape(2.dp)).background(SwitchColors.Card), contentAlignment = Alignment.Center) {
                                     if (cover != null) Image(bitmap = cover, contentDescription = "Capa atual", contentScale = ContentScale.Crop, modifier = Modifier.fillMaxSize())
                                     else Icon(Icons.Rounded.SportsEsports, null, tint = SwitchColors.Muted, modifier = Modifier.size(u * 0.09f))
                                 }
                                 Column(verticalArrangement = Arrangement.spacedBy(u * 0.009f)) {
-                                    Text("Imagem de capa", color = SwitchColors.Muted, fontSize = (u.value * 0.026f).sp)
                                     CompactEditAction("Buscar capa", Icons.Rounded.Search, onSearchCover, u)
                                     CompactEditAction("Galeria", Icons.Rounded.Image, onGallery, u)
                                     if (cover != null) CompactEditAction("Remover capa", Icons.Rounded.Delete, onRemoveCover, u, danger = true)
