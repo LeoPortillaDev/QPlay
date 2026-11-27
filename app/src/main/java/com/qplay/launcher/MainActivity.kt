@@ -221,13 +221,13 @@ class MainActivity : ComponentActivity() {
         BackHandler(enabled = settingsOpen || nameDialog || tab != "Biblioteca") { if (settingsOpen) settingsOpen = false else tab = "Biblioteca" }
 
         BoxWithConstraints(Modifier.fillMaxSize().background(Bg)) {
-            val tileSize = (maxWidth * 0.19f).coerceIn(136.dp, 210.dp)
+            val tileSize = (maxWidth * 0.225f).coerceIn(160.dp, 280.dp)
             val libraryApps = apps.filter { it.packageName in selectedApps }
             val visibleGames = games.filter { game -> when (libraryFilter) { "Favoritos" -> game.uri.toString() in favoriteKeys; "Grupos" -> !groupMap[game.uri.toString()].isNullOrBlank(); else -> true } }
             val visibleApps = libraryApps.filter { app -> when (libraryFilter) { "Favoritos" -> app.packageName in favoriteKeys; "Grupos" -> !groupMap[app.packageName].isNullOrBlank(); else -> true } }
             val totalItems = visibleGames.size + visibleApps.size
 
-            Column(Modifier.fillMaxSize().background(Bg).padding(horizontal = maxWidth * 0.018f, vertical = maxHeight * 0.018f)) {
+            Column(Modifier.fillMaxSize().background(Bg).padding(horizontal = maxWidth * 0.01f, vertical = maxHeight * 0.01f)) {
                 // Top system strip: discreet brand, status and settings.
                 Row(Modifier.fillMaxWidth(), verticalAlignment = Alignment.CenterVertically) {
                     Surface(
@@ -409,10 +409,10 @@ class MainActivity : ComponentActivity() {
                     } else {
                         var focusedGameName by remember { mutableStateOf(games.firstOrNull()?.name ?: libraryApps.firstOrNull()?.name.orEmpty()) }
                         // Align the title with the first visible game tile.
-                        val shelfWidth = this@BoxWithConstraints.maxWidth * 0.95f
+                        val shelfWidth = this@BoxWithConstraints.maxWidth * 0.98f
                         val shelfSpacing = (tileSize * 0.055f).coerceAtLeast(8.dp)
                         val shelfContentWidth = tileSize * totalItems.toFloat() + shelfSpacing * (totalItems - 1).toFloat()
-                        val shelfSidePadding = if (shelfContentWidth <= shelfWidth) (shelfWidth - shelfContentWidth) / 2f else shelfWidth * 0.045f
+                        val shelfSidePadding = if (shelfContentWidth <= shelfWidth) (shelfWidth - shelfContentWidth) / 2f else shelfWidth * 0.025f
                         Spacer(Modifier.weight(1f))
                         Text(focusedGameName.uppercase(), color = Color(0xFF35BCEB), fontSize = 15.sp, fontWeight = FontWeight.SemiBold, letterSpacing = 0.5.sp, maxLines = 1, overflow = TextOverflow.Ellipsis, textAlign = TextAlign.Start, modifier = Modifier.fillMaxWidth().padding(start = shelfSidePadding))
                         Spacer(Modifier.height(16.dp))
