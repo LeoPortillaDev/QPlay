@@ -5,6 +5,14 @@
             <action android:name="android.intent.action.MAIN" />
             <category android:name="android.intent.category.LAUNCHER" />
         </intent>
+        <intent>
+            <action android:name="android.intent.action.VIEW" />
+            <data android:mimeType="application/x-nx-nsp" />
+        </intent>
+        <intent>
+            <action android:name="android.intent.action.VIEW" />
+            <data android:mimeType="application/x-nx-xci" />
+        </intent>
         <package android:name="dev.nxnative.android" />
         <package android:name="dev.bananative.android" />
         <package android:name="dev.nxnative.android.play" />
