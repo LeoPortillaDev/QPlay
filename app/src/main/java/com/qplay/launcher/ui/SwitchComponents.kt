@@ -49,6 +49,7 @@ import androidx.compose.material3.Icon
 import androidx.compose.material3.OutlinedTextFieldDefaults
 import androidx.compose.material3.Text
 import androidx.compose.runtime.Composable
+import androidx.compose.runtime.compositionLocalOf
 import androidx.compose.runtime.DisposableEffect
 import androidx.compose.runtime.LaunchedEffect
 import androidx.compose.runtime.getValue
@@ -89,6 +90,9 @@ import kotlinx.coroutines.delay
 import java.text.SimpleDateFormat
 import java.util.Date
 import java.util.Locale
+
+/** Sons curtos de navegação/confirmação fornecidos pela Activity. */
+val LocalUiSound = compositionLocalOf<(Boolean) -> Unit> { { } }
 
 /* ------------------------------------------------------------------ */
 /* Entrada por controle                                                 */
@@ -506,14 +510,16 @@ fun SwitchButton(
     enabled: Boolean = true
 ) {
     var focused by remember { mutableStateOf(false) }
+    val uiSound = LocalUiSound.current
+    val activate = { if (enabled) { uiSound(true); onClick() } }
     val shape = RoundedCornerShape(50)
     val bg = if (primary) SwitchColors.Teal else SwitchColors.Surface
     val fg = if (primary) Color.White else SwitchColors.Ink
     Row(
         modifier
-            .onFocusChanged { focused = it.isFocused }
-            .gamepadA { if (enabled) onClick() }
-            .clickable(enabled = enabled, interactionSource = remember { MutableInteractionSource() }, indication = null, onClick = onClick)
+            .onFocusChanged { focused = it.isFocused; if (it.isFocused) uiSound(false) }
+            .gamepadA(activate)
+            .clickable(enabled = enabled, interactionSource = remember { MutableInteractionSource() }, indication = null, onClick = activate)
             .alpha(if (enabled) 1f else 0.5f)
             .shadow(if (focused) 6.dp else 1.dp, shape)
             .background(bg, shape)
@@ -533,13 +539,15 @@ fun SwitchButton(
 @Composable
 fun SwitchListItem(label: String, selected: Boolean, onClick: () -> Unit, modifier: Modifier = Modifier) {
     var focused by remember { mutableStateOf(false) }
+    val uiSound = LocalUiSound.current
+    val activate = { uiSound(true); onClick() }
     val shape = RoundedCornerShape(6.dp)
     Row(
         modifier
             .fillMaxWidth()
-            .onFocusChanged { focused = it.isFocused }
-            .gamepadA(onClick)
-            .clickable(interactionSource = remember { MutableInteractionSource() }, indication = null, onClick = onClick)
+            .onFocusChanged { focused = it.isFocused; if (it.isFocused) uiSound(false) }
+            .gamepadA(activate)
+            .clickable(interactionSource = remember { MutableInteractionSource() }, indication = null, onClick = activate)
             .background(if (selected || focused) SwitchColors.Selected else Color.Transparent, shape)
             .then(if (focused) Modifier.border(3.dp, SwitchColors.Cyan, shape) else Modifier)
             .padding(horizontal = 14.dp, vertical = 8.dp),
