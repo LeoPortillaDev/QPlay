@@ -257,18 +257,26 @@ class MainActivity : ComponentActivity() {
             toast("Formato de jogo não reconhecido.")
             return
         }
+        // Não usar Intent implícita: o Android pode encaminhar arquivos a apps sem relação com jogos.
+        // Lemon documenta esta Activity e o pacote para abertura por frontends.
+        val lemonPackages = listOf("dev.lemon.lemon_emulator", "com.antutu.ABenchMark")
+        val lemonPackage = lemonPackages.firstOrNull { pkg ->
+            packageManager.getLaunchIntentForPackage(pkg) != null
+        }
+        if (lemonPackage == null) {
+            toast("Lemon não encontrado. Instale o Lemon e adicione sua pasta de jogos nas configurações dele.", long = true)
+            return
+        }
+        val activity = "dev.lemon.lemon_emu.activities.EmulationActivity"
         val intent = Intent(Intent.ACTION_VIEW).apply {
+            component = ComponentName(lemonPackage, activity)
             setDataAndType(game.uri, mime)
             addFlags(Intent.FLAG_GRANT_READ_URI_PERMISSION)
-        }
-        if (packageManager.resolveActivity(intent, PackageManager.MATCH_DEFAULT_ONLY) == null) {
-            toast("Nenhum emulador declarou suporte à abertura direta deste arquivo. Abra o Lemon ou outro emulador e adicione a pasta de jogos.", long = true)
-            return
         }
         try {
             startActivity(intent)
         } catch (_: Exception) {
-            toast("O emulador não conseguiu abrir este arquivo. Tente adicionar a pasta de jogos nas configurações dele.", long = true)
+            toast("O Lemon não conseguiu abrir este arquivo. Confira se a pasta de jogos também está cadastrada nele.", long = true)
         }
     }
 
