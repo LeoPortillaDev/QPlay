@@ -1,14 +1,11 @@
 package com.qplay.launcher.ui
 
-import android.content.BroadcastReceiver
 import android.content.Context
 import android.content.Intent
-import android.content.IntentFilter
 import android.hardware.input.InputManager
 import android.net.ConnectivityManager
 import android.net.NetworkCapabilities
 import android.os.BatteryManager
-import android.os.Build
 import android.view.InputDevice
 import androidx.compose.animation.core.RepeatMode
 import androidx.compose.animation.core.animateDpAsState
@@ -356,39 +353,24 @@ data class ButtonHint(val key: String, val label: String)
 @Composable
 private fun rememberHasGameController(): Boolean {
     val context = LocalContext.current
-    var connected by remember {
-        mutableStateOf(
-            InputDevice.getDeviceIds().any { id ->
-                val device = InputDevice.getDevice(id)
-                device != null && !device.isVirtual &&
-                    (device.sources and InputDevice.SOURCE_GAMEPAD == InputDevice.SOURCE_GAMEPAD ||
-                     device.sources and InputDevice.SOURCE_JOYSTICK == InputDevice.SOURCE_JOYSTICK)
-            }
-        )
+    val inputManager = remember {
+        context.getSystemService(Context.INPUT_SERVICE) as InputManager
     }
-    DisposableEffect(context) {
-        val receiver = object : BroadcastReceiver() {
-            override fun onReceive(context: Context?, intent: Intent?) {
-                connected = InputDevice.getDeviceIds().any { id ->
-                    val device = InputDevice.getDevice(id)
-                    device != null && !device.isVirtual &&
-                        (device.sources and InputDevice.SOURCE_GAMEPAD == InputDevice.SOURCE_GAMEPAD ||
-                         device.sources and InputDevice.SOURCE_JOYSTICK == InputDevice.SOURCE_JOYSTICK)
-                }
-            }
+    fun hasController(): Boolean = InputDevice.getDeviceIds().any { id ->
+        val device = InputDevice.getDevice(id)
+        device != null && !device.isVirtual &&
+            (device.sources and InputDevice.SOURCE_GAMEPAD == InputDevice.SOURCE_GAMEPAD ||
+             device.sources and InputDevice.SOURCE_JOYSTICK == InputDevice.SOURCE_JOYSTICK)
+    }
+    var connected by remember { mutableStateOf(hasController()) }
+    DisposableEffect(inputManager) {
+        val listener = object : InputManager.InputDeviceListener {
+            override fun onInputDeviceAdded(deviceId: Int) { connected = hasController() }
+            override fun onInputDeviceRemoved(deviceId: Int) { connected = hasController() }
+            override fun onInputDeviceChanged(deviceId: Int) { connected = hasController() }
         }
-        val filter = IntentFilter().apply {
-            addAction(InputManager.ACTION_DEVICE_ADDED)
-            addAction(InputManager.ACTION_DEVICE_REMOVED)
-            addAction(InputManager.ACTION_DEVICE_CHANGED)
-        }
-        if (Build.VERSION.SDK_INT >= 33) {
-            context.registerReceiver(receiver, filter, Context.RECEIVER_NOT_EXPORTED)
-        } else {
-            @Suppress("DEPRECATION")
-            context.registerReceiver(receiver, filter)
-        }
-        onDispose { runCatching { context.unregisterReceiver(receiver) } }
+        inputManager.registerInputDeviceListener(listener, android.os.Handler(android.os.Looper.getMainLooper()))
+        onDispose { inputManager.unregisterInputDeviceListener(listener) }
     }
     return connected
 }
