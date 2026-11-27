@@ -36,14 +36,21 @@ class GameMenuAccessibilityService : AccessibilityService() {
 
     override fun onAccessibilityEvent(event: AccessibilityEvent?) {
         val pkg = event?.packageName?.toString() ?: return
-        if (pkg != packageName) foregroundPackage = pkg
+        // Não perca a identificação do emulador quando o Android/Samsung emitir
+        // eventos de janelas do sistema por cima do jogo.
+        if (isSupportedEmulator(pkg)) foregroundPackage = pkg
     }
 
     override fun onInterrupt() = Unit
 
     override fun onKeyEvent(event: KeyEvent): Boolean {
         val key = event.keyCode
-        val isHome = key == KeyEvent.KEYCODE_HOME
+        // Controles Bluetooth podem mapear o botão HOME para BUTTON_MODE ou MENU,
+        // em vez de KEYCODE_HOME. Capturamos as três variantes enquanto o emulador
+        // conhecido continua sendo o app em primeiro plano.
+        val isHome = key == KeyEvent.KEYCODE_HOME ||
+            key == KeyEvent.KEYCODE_BUTTON_MODE ||
+            key == KeyEvent.KEYCODE_MENU
         if (isHome && isSupportedEmulator(foregroundPackage)) {
             if (event.action == KeyEvent.ACTION_DOWN && event.repeatCount == 0) showMenu()
             return true
