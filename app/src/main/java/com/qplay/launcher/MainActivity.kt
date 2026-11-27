@@ -227,7 +227,7 @@ class MainActivity : ComponentActivity() {
             val visibleApps = libraryApps.filter { app -> when (libraryFilter) { "Favoritos" -> app.packageName in favoriteKeys; "Grupos" -> !groupMap[app.packageName].isNullOrBlank(); else -> true } }
             val totalItems = visibleGames.size + visibleApps.size
 
-            Column(Modifier.fillMaxSize().background(Bg).padding(horizontal = maxWidth * 0.025f, vertical = maxHeight * 0.025f)) {
+            Column(Modifier.fillMaxSize().background(Bg).padding(horizontal = maxWidth * 0.018f, vertical = maxHeight * 0.018f)) {
                 // Top system strip: discreet brand, status and settings.
                 Row(Modifier.fillMaxWidth(), verticalAlignment = Alignment.CenterVertically) {
                     Surface(
@@ -520,9 +520,9 @@ class MainActivity : ComponentActivity() {
                 val compact = maxWidth < 900.dp || maxHeight < 600.dp
                 Surface(
                     color = Color(0xFF202020),
-                    shape = RoundedCornerShape(18.dp),
-                    border = BorderStroke(2.dp, Color(0xFF35BCEB)),
-                    modifier = Modifier.fillMaxWidth(0.82f).fillMaxHeight(0.78f)
+                    shape = RoundedCornerShape(0.dp),
+                    border = BorderStroke(1.dp, Color(0xFF35BCEB)),
+                    modifier = Modifier.fillMaxSize()
                 ) {
                     Column(Modifier.fillMaxSize().padding(if (compact) 10.dp else 16.dp)) {
                         Row(Modifier.fillMaxWidth(), verticalAlignment = Alignment.CenterVertically) {
@@ -666,9 +666,9 @@ class MainActivity : ComponentActivity() {
                 val compactEdit = maxWidth < 1100.dp || maxHeight < 700.dp
                 Surface(
                     color = Color(0xFF202020),
-                    shape = RoundedCornerShape(18.dp),
-                    border = BorderStroke(2.dp, Color(0xFF35BCEB)),
-                    modifier = Modifier.fillMaxWidth(0.68f).fillMaxHeight(0.68f)
+                    shape = RoundedCornerShape(0.dp),
+                    border = BorderStroke(1.dp, Color(0xFF35BCEB)),
+                    modifier = Modifier.fillMaxSize()
                 ) {
                     Column(Modifier.fillMaxSize().padding(if (compactEdit) 8.dp else 14.dp)) {
                         Row(Modifier.fillMaxWidth(), verticalAlignment = Alignment.CenterVertically) {
