@@ -2,6 +2,9 @@
 
 Aplicativo Android independente, inspirado na navegação de consoles, com foco inicial em celular e tablet Android em modo paisagem.
 
+## Interface estilo Switch
+Tela inicial no estilo do Switch (avatar, relógio/Wi-Fi/bateria, fileira de jogos com borda ciano, 6 botões redondos, rodapé com dicas de botões). Configurações, Personalizar jogo, Buscar capa e Aplicativos são páginas em tela cheia (sem Dialog). Veja `LEIA-ME-PARA-IA.md` para o mapa do código e as regras ao editar.
+
 ## O que esta versão contém
 - Interface inicial em Jetpack Compose.
 - Biblioteca com jogos demonstrativos.
