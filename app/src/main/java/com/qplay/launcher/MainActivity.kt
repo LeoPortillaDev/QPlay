@@ -225,6 +225,10 @@ class MainActivity : ComponentActivity() {
     }
 
     private fun launchNup(game: NupGame) {
+        if (!game.fileName.substringAfterLast('.', "").equals("nup", true)) {
+            launchSwitchPackage(game)
+            return
+        }
         val pkg = peanutsPackage()
         if (pkg == null) {
             toast("Peanuts Native não foi encontrado.", long = true)
@@ -242,6 +246,32 @@ class MainActivity : ComponentActivity() {
         }
     }
 
+    private fun launchSwitchPackage(game: NupGame) {
+        val extension = game.fileName.substringAfterLast('.', "").lowercase()
+        val mime = when (extension) {
+            "nsp" -> "application/x-nx-nsp"
+            "xci" -> "application/x-nx-xci"
+            else -> null
+        }
+        if (mime == null) {
+            toast("Formato de jogo não reconhecido.")
+            return
+        }
+        val intent = Intent(Intent.ACTION_VIEW).apply {
+            setDataAndType(game.uri, mime)
+            addFlags(Intent.FLAG_GRANT_READ_URI_PERMISSION)
+        }
+        if (packageManager.resolveActivity(intent, PackageManager.MATCH_DEFAULT_ONLY) == null) {
+            toast("Nenhum emulador declarou suporte à abertura direta deste arquivo. Abra o Lemon ou outro emulador e adicione a pasta de jogos.", long = true)
+            return
+        }
+        try {
+            startActivity(intent)
+        } catch (_: Exception) {
+            toast("O emulador não conseguiu abrir este arquivo. Tente adicionar a pasta de jogos nas configurações dele.", long = true)
+        }
+    }
+
     private fun scanNupFolder(treeUri: Uri): List<NupGame> {
         val root = DocumentFile.fromTreeUri(this, treeUri) ?: return emptyList()
         val found = mutableListOf<NupGame>()
@@ -249,8 +279,8 @@ class MainActivity : ComponentActivity() {
             if (depth > 8 || found.size >= 500) return
             dir.listFiles().forEach { file ->
                 if (file.isDirectory) walk(file, depth + 1)
-                else if (file.isFile && file.name?.substringAfterLast('.', "")?.equals("nup", true) == true) {
-                    val filename = file.name ?: "Jogo .nup"
+                else if (file.isFile && file.name?.substringAfterLast('.', "")?.lowercase() in setOf("nup", "nsp", "xci")) {
+                    val filename = file.name ?: "Jogo"
                     found.add(NupGame(filename.substringBeforeLast('.').replace('_', ' '), file.uri, filename))
                 }
             }
@@ -343,7 +373,7 @@ class MainActivity : ComponentActivity() {
         var scanning by remember { mutableStateOf(false) }
         var refreshToken by remember { mutableIntStateOf(0) }
         var selectedApps by remember { mutableStateOf(prefs.getStringSet("selected_apps", emptySet()).orEmpty()) }
-        var scanMessage by remember { mutableStateOf("Escolha a pasta onde estão seus arquivos .nup") }
+        var scanMessage by remember { mutableStateOf("Escolha a pasta onde estão seus jogos (.nup, .nsp ou .xci)") }
         var displayName by remember { mutableStateOf(prefs.getString("display_name", "") ?: "") }
         var favoriteKeys by remember { mutableStateOf(prefs.getStringSet("favorites", emptySet()).orEmpty()) }
         var groupMap by remember { mutableStateOf(stringMap(prefs, "group_")) }
@@ -418,10 +448,10 @@ class MainActivity : ComponentActivity() {
             val root = folderUri
             if (root != null) {
                 scanning = true
-                scanMessage = "Procurando arquivos .nup…"
+                scanMessage = "Procurando jogos (.nup, .nsp e .xci)…"
                 val found = withContext(Dispatchers.IO) { scanNupFolder(root) }
                 games = found
-                scanMessage = if (found.isEmpty()) "Nenhum arquivo .nup encontrado nesta pasta." else "${found.size} jogo(s) encontrado(s)"
+                scanMessage = if (found.isEmpty()) "Nenhum jogo .nup, .nsp ou .xci encontrado nesta pasta." else "${found.size} jogo(s) encontrado(s)"
                 scanning = false
             } else {
                 games = emptyList()
