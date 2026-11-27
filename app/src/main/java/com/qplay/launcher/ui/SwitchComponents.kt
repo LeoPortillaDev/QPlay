@@ -222,7 +222,7 @@ fun SwitchAvatar(
             .shadow(2.dp, CircleShape)
             .clip(CircleShape)
             .background(Color(0xFF7FDDEB))
-            .border(if (focused) size * 0.06f else size * 0.03f, if (focused) SwitchColors.Cyan else Color.White, CircleShape),
+            .border(if (focused) size * 0.06f else size * 0.03f, if (focused) SwitchColors.Cyan else SwitchColors.Surface, CircleShape),
         contentAlignment = Alignment.Center
     ) {
         if (image != null) {
@@ -265,7 +265,7 @@ fun SwitchTileFrame(
                 Modifier
                     .size(size)
                     .border(border, SwitchColors.Cyan.copy(alpha = glow), RoundedCornerShape(2.dp))
-                    .border(border * 0.35f, Color.White, RoundedCornerShape(2.dp))
+                    .border(border * 0.35f, SwitchColors.Surface, RoundedCornerShape(2.dp))
             )
         }
     }
@@ -274,7 +274,7 @@ fun SwitchTileFrame(
 @Composable
 fun SwitchEmptySlot(size: Dp, onClick: () -> Unit, modifier: Modifier = Modifier) {
     var focused by remember { mutableStateOf(false) }
-    val ring = if (focused) SwitchColors.Cyan else Color.White
+    val ring = if (focused) SwitchColors.Cyan else SwitchColors.Border
     Box(
         modifier
             .size(size)
@@ -524,7 +524,7 @@ fun SwitchButton(
 ) {
     var focused by remember { mutableStateOf(false) }
     val shape = RoundedCornerShape(50)
-    val bg = if (primary) SwitchColors.Teal else Color.White
+    val bg = if (primary) SwitchColors.Teal else SwitchColors.Surface
     val fg = if (primary) Color.White else SwitchColors.Ink
     Row(
         modifier
@@ -534,7 +534,7 @@ fun SwitchButton(
             .alpha(if (enabled) 1f else 0.5f)
             .shadow(if (focused) 6.dp else 1.dp, shape)
             .background(bg, shape)
-            .border(if (focused) 3.dp else 1.dp, if (focused) SwitchColors.Cyan else Color(0xFFD0D0D0), shape)
+            .border(if (focused) 3.dp else 1.dp, if (focused) SwitchColors.Cyan else SwitchColors.Border, shape)
             .padding(horizontal = 20.dp, vertical = 11.dp),
         verticalAlignment = Alignment.CenterVertically,
         horizontalArrangement = Arrangement.Center
@@ -578,12 +578,12 @@ fun SwitchListItem(label: String, selected: Boolean, onClick: () -> Unit, modifi
 @Composable
 fun switchTextFieldColors() = OutlinedTextFieldDefaults.colors(
     focusedBorderColor = SwitchColors.Cyan,
-    unfocusedBorderColor = Color(0xFFBDBDBD),
+    unfocusedBorderColor = SwitchColors.Border,
     focusedLabelColor = SwitchColors.Teal,
     unfocusedLabelColor = SwitchColors.Muted,
     cursorColor = SwitchColors.Teal,
-    focusedContainerColor = Color.White,
-    unfocusedContainerColor = Color.White,
+    focusedContainerColor = SwitchColors.Surface,
+    unfocusedContainerColor = SwitchColors.Surface,
     focusedTextColor = SwitchColors.Ink,
     unfocusedTextColor = SwitchColors.Ink
 )
