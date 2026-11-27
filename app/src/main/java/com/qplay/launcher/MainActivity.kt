@@ -221,13 +221,13 @@ class MainActivity : ComponentActivity() {
         BackHandler(enabled = settingsOpen || nameDialog || tab != "Biblioteca") { if (settingsOpen) settingsOpen = false else tab = "Biblioteca" }
 
         BoxWithConstraints(Modifier.fillMaxSize().background(Bg)) {
-            val tileSize = (maxWidth * 0.225f).coerceIn(160.dp, 280.dp)
+            val tileSize = (maxWidth * 0.19f).coerceIn(136.dp, 210.dp)
             val libraryApps = apps.filter { it.packageName in selectedApps }
             val visibleGames = games.filter { game -> when (libraryFilter) { "Favoritos" -> game.uri.toString() in favoriteKeys; "Grupos" -> !groupMap[game.uri.toString()].isNullOrBlank(); else -> true } }
             val visibleApps = libraryApps.filter { app -> when (libraryFilter) { "Favoritos" -> app.packageName in favoriteKeys; "Grupos" -> !groupMap[app.packageName].isNullOrBlank(); else -> true } }
             val totalItems = visibleGames.size + visibleApps.size
 
-            Column(Modifier.fillMaxSize().background(Bg).padding(horizontal = maxWidth * 0.01f, vertical = maxHeight * 0.01f)) {
+            Column(Modifier.fillMaxSize().background(Bg).padding(horizontal = maxWidth * 0.018f, vertical = maxHeight * 0.018f)) {
                 // Top system strip: discreet brand, status and settings.
                 Row(Modifier.fillMaxWidth(), verticalAlignment = Alignment.CenterVertically) {
                     Surface(
@@ -297,11 +297,11 @@ class MainActivity : ComponentActivity() {
                                     }
                                 }
                             }
-                            BoxWithConstraints(Modifier.fillMaxSize().background(Bg).windowInsetsPadding(androidx.compose.foundation.layout.WindowInsets(0, 0, 0, 0))) {
+                            BoxWithConstraints(Modifier.fillMaxSize().background(Color(0x99000000)).windowInsetsPadding(androidx.compose.foundation.layout.WindowInsets(0, 0, 0, 0)), contentAlignment = Alignment.Center) {
                                 val compact = maxWidth < 820.dp || maxHeight < 460.dp
                                 val sideWidth = if (compact) 132.dp else (maxWidth * 0.22f).coerceIn(180.dp, 230.dp)
                                 val outerPad = if (compact) 8.dp else 16.dp
-                                Column(Modifier.fillMaxSize().background(Bg).padding(horizontal = if (compact) 6.dp else 10.dp, vertical = 4.dp)) {
+                                Column(Modifier.fillMaxWidth(0.5f).fillMaxHeight(0.5f).background(Bg).padding(horizontal = if (compact) 6.dp else 10.dp, vertical = 4.dp)) {
                                     Row(Modifier.fillMaxWidth().heightIn(min = 42.dp), verticalAlignment = Alignment.CenterVertically) {
                                         Icon(Icons.Rounded.Settings, null, tint = Color(0xFF35BCEB), modifier = Modifier.size(if (compact) 22.dp else 28.dp))
                                         Spacer(Modifier.width(8.dp))
@@ -409,10 +409,10 @@ class MainActivity : ComponentActivity() {
                     } else {
                         var focusedGameName by remember { mutableStateOf(games.firstOrNull()?.name ?: libraryApps.firstOrNull()?.name.orEmpty()) }
                         // Align the title with the first visible game tile.
-                        val shelfWidth = this@BoxWithConstraints.maxWidth * 0.98f
+                        val shelfWidth = this@BoxWithConstraints.maxWidth * 0.95f
                         val shelfSpacing = (tileSize * 0.055f).coerceAtLeast(8.dp)
                         val shelfContentWidth = tileSize * totalItems.toFloat() + shelfSpacing * (totalItems - 1).toFloat()
-                        val shelfSidePadding = if (shelfContentWidth <= shelfWidth) (shelfWidth - shelfContentWidth) / 2f else shelfWidth * 0.025f
+                        val shelfSidePadding = if (shelfContentWidth <= shelfWidth) (shelfWidth - shelfContentWidth) / 2f else shelfWidth * 0.045f
                         Spacer(Modifier.weight(1f))
                         Text(focusedGameName.uppercase(), color = Color(0xFF35BCEB), fontSize = 15.sp, fontWeight = FontWeight.SemiBold, letterSpacing = 0.5.sp, maxLines = 1, overflow = TextOverflow.Ellipsis, textAlign = TextAlign.Start, modifier = Modifier.fillMaxWidth().padding(start = shelfSidePadding))
                         Spacer(Modifier.height(16.dp))
@@ -522,7 +522,7 @@ class MainActivity : ComponentActivity() {
                     color = Color(0xFF202020),
                     shape = RoundedCornerShape(0.dp),
                     border = BorderStroke(1.dp, Color(0xFF35BCEB)),
-                    modifier = Modifier.fillMaxSize()
+                    modifier = Modifier.fillMaxWidth(0.5f).fillMaxHeight(0.5f)
                 ) {
                     Column(Modifier.fillMaxSize().padding(if (compact) 10.dp else 16.dp)) {
                         Row(Modifier.fillMaxWidth(), verticalAlignment = Alignment.CenterVertically) {
