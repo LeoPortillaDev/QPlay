@@ -31,6 +31,8 @@ import androidx.compose.foundation.verticalScroll
 import androidx.compose.material.icons.Icons
 import androidx.compose.material.icons.rounded.Apps
 import androidx.compose.material.icons.rounded.Delete
+import androidx.compose.material.icons.rounded.Check
+import androidx.compose.material.icons.rounded.Close
 import androidx.compose.material.icons.rounded.Favorite
 import androidx.compose.material.icons.rounded.FolderOpen
 import androidx.compose.material.icons.rounded.Image
@@ -361,6 +363,7 @@ fun EditPage(
     }
 }
 
+@OptIn(ExperimentalFoundationApi::class)
 @Composable
 private fun CompactEditAction(
     label: String,
