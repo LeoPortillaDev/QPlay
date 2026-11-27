@@ -242,43 +242,103 @@ fun EditPage(
     onCancel: () -> Unit
 ) {
     SwitchPage(title = "Personalizar jogo", subtitle = gameName, hints = BackOk) { u ->
-        Row(Modifier.fillMaxSize(), horizontalArrangement = Arrangement.spacedBy(u * 0.07f)) {
-            Column(Modifier.fillMaxHeight(), verticalArrangement = Arrangement.Center) {
-                SwitchTileFrame(size = u * 0.46f, focused = false) {
+        Row(
+            Modifier.fillMaxSize().padding(horizontal = u * 0.045f, vertical = u * 0.015f),
+            horizontalArrangement = Arrangement.spacedBy(u * 0.045f),
+            verticalAlignment = Alignment.CenterVertically
+        ) {
+            // Cartão da capa: menor e com proporção de caixa de jogo, sem disputar espaço com os controles.
+            Column(
+                Modifier.weight(0.30f).fillMaxHeight(),
+                horizontalAlignment = Alignment.CenterHorizontally,
+                verticalArrangement = Arrangement.Center
+            ) {
+                Text(
+                    "CAPA DO JOGO",
+                    color = SwitchColors.Muted,
+                    fontSize = (u.value * 0.025f).sp,
+                    fontWeight = FontWeight.Bold,
+                    letterSpacing = 1.sp
+                )
+                Spacer(Modifier.height(u * 0.014f))
+                SwitchTileFrame(size = u * 0.30f, focused = false) {
                     Box(Modifier.fillMaxSize(), contentAlignment = Alignment.Center) {
-                        if (cover != null) Image(bitmap = cover, contentDescription = "Capa atual", contentScale = ContentScale.Crop, modifier = Modifier.fillMaxSize())
-                        else Column(horizontalAlignment = Alignment.CenterHorizontally) {
-                            Icon(Icons.Rounded.SportsEsports, null, tint = Color(0xFF777777), modifier = Modifier.size(u * 0.12f))
-                            Text("SEM CAPA", color = Color(0xFF999999), fontSize = (u.value * 0.028f).sp, fontWeight = FontWeight.Bold)
+                        if (cover != null) {
+                            Image(bitmap = cover, contentDescription = "Capa atual", contentScale = ContentScale.Crop, modifier = Modifier.fillMaxSize())
+                        } else {
+                            Column(horizontalAlignment = Alignment.CenterHorizontally, verticalArrangement = Arrangement.spacedBy(u * 0.012f)) {
+                                Icon(Icons.Rounded.SportsEsports, null, tint = Color(0xFF777777), modifier = Modifier.size(u * 0.085f))
+                                Text("SEM CAPA", color = Color(0xFF999999), fontSize = (u.value * 0.024f).sp, fontWeight = FontWeight.Bold)
+                            }
                         }
                     }
                 }
+                Spacer(Modifier.height(u * 0.018f))
+                Text(
+                    if (cover != null) "Imagem personalizada" else "Adicione uma arte ao jogo",
+                    color = SwitchColors.Muted,
+                    fontSize = (u.value * 0.022f).sp,
+                    maxLines = 1,
+                    overflow = TextOverflow.Ellipsis
+                )
             }
+
+            // Painel de edição compacto, organizado em etapas como uma tela de configuração do console.
             Column(
-                Modifier.weight(1f).fillMaxHeight().verticalScroll(rememberScrollState()),
-                verticalArrangement = Arrangement.spacedBy(u * 0.022f)
+                Modifier.weight(0.70f).fillMaxHeight()
+                    .background(Color(0xFFF5F5F5), RoundedCornerShape(12.dp))
+                    .border(1.dp, Color(0xFFD5D5D5), RoundedCornerShape(12.dp))
+                    .padding(horizontal = u * 0.025f, vertical = u * 0.022f),
+                verticalArrangement = Arrangement.spacedBy(u * 0.022f),
+                horizontalAlignment = Alignment.Start
             ) {
-                SwitchTextField(
-                    label = "Nome do jogo", value = draftTitle, onValueChange = onDraftTitle,
-                    title = "Insira o nome do jogo.", subtitle = "Ele aparece embaixo da capa na tela inicial.",
-                    maxLength = 60, modifier = Modifier.fillMaxWidth()
+                Text(
+                    "INFORMAÇÕES DO JOGO",
+                    color = SwitchColors.Teal,
+                    fontSize = (u.value * 0.028f).sp,
+                    fontWeight = FontWeight.Bold,
+                    letterSpacing = 1.sp
                 )
-                SwitchTextField(
-                    label = "Grupo / coleção", value = draftGroup, onValueChange = onDraftGroup,
-                    title = "Insira o nome do grupo.", subtitle = "Use o mesmo nome em vários jogos para agrupá-los.",
-                    maxLength = 30, modifier = Modifier.fillMaxWidth()
-                )
-                SwitchButton(
-                    if (favorite) "Favorito" else "Adicionar aos favoritos",
-                    { onFavorite(!favorite) }, icon = Icons.Rounded.Favorite, primary = favorite
-                )
-                Row(horizontalArrangement = Arrangement.spacedBy(u * 0.02f)) {
+                Row(
+                    Modifier.fillMaxWidth(),
+                    horizontalArrangement = Arrangement.spacedBy(u * 0.018f)
+                ) {
+                    SwitchTextField(
+                        label = "Nome do jogo", value = draftTitle, onValueChange = onDraftTitle,
+                        title = "Insira o nome do jogo.", subtitle = "Nome exibido na biblioteca.",
+                        maxLength = 60, modifier = Modifier.weight(1.25f)
+                    )
+                    SwitchTextField(
+                        label = "Grupo / coleção", value = draftGroup, onValueChange = onDraftGroup,
+                        title = "Insira o nome do grupo.", subtitle = "Organize jogos em coleções.",
+                        maxLength = 30, modifier = Modifier.weight(0.9f)
+                    )
+                }
+                Row(
+                    Modifier.fillMaxWidth(),
+                    horizontalArrangement = Arrangement.spacedBy(u * 0.018f),
+                    verticalAlignment = Alignment.CenterVertically
+                ) {
+                    SwitchButton(
+                        if (favorite) "Favorito" else "Adicionar aos favoritos",
+                        { onFavorite(!favorite) },
+                        icon = Icons.Rounded.Favorite,
+                        primary = favorite
+                    )
+                    Spacer(Modifier.weight(1f))
                     SwitchButton("Buscar capa", onSearchCover, icon = Icons.Rounded.Search)
                     SwitchButton("Galeria", onGallery, icon = Icons.Rounded.Image)
-                    if (cover != null) SwitchButton("Remover capa", onRemoveCover, icon = Icons.Rounded.Delete)
+                    if (cover != null) SwitchButton("Remover", onRemoveCover, icon = Icons.Rounded.Delete)
                 }
-                Row(horizontalArrangement = Arrangement.spacedBy(u * 0.02f)) {
+                Spacer(Modifier.weight(1f))
+                Box(Modifier.fillMaxWidth().height(1.dp).background(Color(0xFFD5D5D5)))
+                Row(
+                    Modifier.fillMaxWidth(),
+                    horizontalArrangement = Arrangement.End,
+                    verticalAlignment = Alignment.CenterVertically
+                ) {
                     SwitchButton("Cancelar", onCancel)
+                    Spacer(Modifier.width(u * 0.018f))
                     SwitchButton("Salvar alterações", onSave, primary = true)
                 }
             }
