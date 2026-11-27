@@ -254,72 +254,67 @@ fun EditPage(
     SwitchPage(title = "Personalizar jogo", subtitle = gameName, hints = BackOk) { u ->
         Column(Modifier.fillMaxSize()) {
             Row(
-                Modifier.fillMaxWidth().padding(horizontal = u * 0.025f, vertical = u * 0.012f),
+                Modifier.fillMaxWidth().padding(horizontal = u * 0.025f, vertical = u * 0.008f),
                 verticalAlignment = Alignment.CenterVertically,
-                horizontalArrangement = Arrangement.spacedBy(u * 0.025f)
+                horizontalArrangement = Arrangement.spacedBy(u * 0.02f)
             ) {
                 Box(
-                    Modifier.size(u * 0.105f).background(SwitchColors.Card, RoundedCornerShape(3.dp)),
+                    Modifier.size(u * 0.082f).clip(RoundedCornerShape(2.dp)).background(SwitchColors.Card),
                     contentAlignment = Alignment.Center
                 ) {
-                    if (cover != null) {
-                        Image(bitmap = cover, contentDescription = "Capa do jogo", contentScale = ContentScale.Crop, modifier = Modifier.fillMaxSize())
-                    } else {
-                        Icon(Icons.Rounded.SportsEsports, null, tint = SwitchColors.Muted, modifier = Modifier.size(u * 0.06f))
-                    }
+                    if (cover != null) Image(bitmap = cover, contentDescription = "Capa do jogo", contentScale = ContentScale.Crop, modifier = Modifier.fillMaxSize())
+                    else Icon(Icons.Rounded.SportsEsports, null, tint = SwitchColors.Muted, modifier = Modifier.size(u * 0.045f))
                 }
-                Column(verticalArrangement = Arrangement.spacedBy(3.dp)) {
-                    Text(draftTitle.ifBlank { gameName }, color = SwitchColors.Ink, fontSize = (u.value * 0.043f).sp, maxLines = 1, overflow = TextOverflow.Ellipsis)
-                    Text("PERSONALIZAÇÃO DA BIBLIOTECA", color = SwitchColors.Muted, fontSize = (u.value * 0.023f).sp, letterSpacing = 1.sp)
+                Column(verticalArrangement = Arrangement.spacedBy(2.dp)) {
+                    Text(draftTitle.ifBlank { gameName }, color = SwitchColors.Ink, fontSize = (u.value * 0.036f).sp, maxLines = 1, overflow = TextOverflow.Ellipsis)
+                    Text("BIBLIOTECA DE JOGOS", color = SwitchColors.Muted, fontSize = (u.value * 0.019f).sp, letterSpacing = 1.sp)
                 }
+                Spacer(Modifier.weight(1f))
+                CompactEditAction("Salvar", Icons.Rounded.Check, onSave, u, accent = true)
             }
             Box(Modifier.fillMaxWidth().height(1.dp).background(SwitchColors.Border))
             Row(
-                Modifier.fillMaxSize().padding(horizontal = u * 0.025f, vertical = u * 0.018f),
-                horizontalArrangement = Arrangement.spacedBy(u * 0.035f)
+                Modifier.fillMaxSize().padding(horizontal = u * 0.025f, vertical = u * 0.014f),
+                horizontalArrangement = Arrangement.spacedBy(u * 0.025f)
             ) {
                 Column(
-                    Modifier.weight(0.31f).fillMaxHeight().verticalScroll(rememberScrollState()),
-                    verticalArrangement = Arrangement.spacedBy(u * 0.009f)
+                    Modifier.weight(0.29f).fillMaxHeight().verticalScroll(rememberScrollState()),
+                    verticalArrangement = Arrangement.spacedBy(u * 0.006f)
                 ) {
                     sections.forEach { section ->
-                        SwitchListItem(
-                            label = section,
-                            selected = selectedSection == section,
-                            onClick = { selectedSection = section }
-                        )
+                        SwitchListItem(section, selectedSection == section, { selectedSection = section })
                     }
-                    Spacer(Modifier.height(u * 0.015f))
-                    SwitchButton("Salvar alterações", onSave, primary = true)
-                    SwitchButton("Cancelar", onCancel)
+                    Spacer(Modifier.height(u * 0.008f))
+                    CompactEditAction("Cancelar", Icons.Rounded.Close, onCancel, u)
                 }
                 Box(Modifier.width(1.dp).fillMaxHeight().background(SwitchColors.Border))
                 Column(
-                    Modifier.weight(0.69f).fillMaxHeight().verticalScroll(rememberScrollState()).padding(start = u * 0.025f, end = u * 0.015f),
-                    verticalArrangement = Arrangement.spacedBy(u * 0.025f)
+                    Modifier.weight(0.71f).fillMaxHeight().verticalScroll(rememberScrollState())
+                        .padding(start = u * 0.02f, end = u * 0.012f),
+                    verticalArrangement = Arrangement.spacedBy(u * 0.018f)
                 ) {
-                    Text(selectedSection, color = SwitchColors.Teal, fontSize = (u.value * 0.041f).sp, fontWeight = FontWeight.Medium)
+                    Text(selectedSection, color = SwitchColors.Teal, fontSize = (u.value * 0.038f).sp, fontWeight = FontWeight.Medium)
                     when (selectedSection) {
                         "Informações do software" -> {
-                            Text("Gerencie como este jogo aparece na biblioteca do Switch.", color = SwitchColors.Muted, fontSize = (u.value * 0.029f).sp)
+                            Text("Resumo deste jogo na sua biblioteca.", color = SwitchColors.Muted, fontSize = (u.value * 0.026f).sp)
                             Row(
-                                Modifier.fillMaxWidth().padding(top = u * 0.018f),
+                                Modifier.fillMaxWidth().padding(top = u * 0.012f),
                                 verticalAlignment = Alignment.CenterVertically,
-                                horizontalArrangement = Arrangement.spacedBy(u * 0.025f)
+                                horizontalArrangement = Arrangement.spacedBy(u * 0.022f)
                             ) {
-                                Box(Modifier.size(u * 0.20f).background(SwitchColors.Card, RoundedCornerShape(3.dp)), contentAlignment = Alignment.Center) {
+                                Box(Modifier.size(u * 0.17f).clip(RoundedCornerShape(2.dp)).background(SwitchColors.Card), contentAlignment = Alignment.Center) {
                                     if (cover != null) Image(bitmap = cover, contentDescription = "Capa", contentScale = ContentScale.Crop, modifier = Modifier.fillMaxSize())
-                                    else Icon(Icons.Rounded.SportsEsports, null, tint = SwitchColors.Muted, modifier = Modifier.size(u * 0.09f))
+                                    else Icon(Icons.Rounded.SportsEsports, null, tint = SwitchColors.Muted, modifier = Modifier.size(u * 0.075f))
                                 }
-                                Column(verticalArrangement = Arrangement.spacedBy(u * 0.014f)) {
-                                    Text(draftTitle.ifBlank { gameName }, color = SwitchColors.Ink, fontSize = (u.value * 0.035f).sp, maxLines = 2, overflow = TextOverflow.Ellipsis)
-                                    Text(if (favorite) "Adicionado aos favoritos" else "Não está nos favoritos", color = SwitchColors.Muted, fontSize = (u.value * 0.027f).sp)
-                                    Text(draftGroup.ifBlank { "Sem grupo ou coleção" }, color = SwitchColors.Muted, fontSize = (u.value * 0.027f).sp)
+                                Column(verticalArrangement = Arrangement.spacedBy(u * 0.012f)) {
+                                    Text(draftTitle.ifBlank { gameName }, color = SwitchColors.Ink, fontSize = (u.value * 0.033f).sp, maxLines = 2, overflow = TextOverflow.Ellipsis)
+                                    Text(if (favorite) "Favorito" else "Não favoritado", color = SwitchColors.Muted, fontSize = (u.value * 0.025f).sp)
+                                    Text(draftGroup.ifBlank { "Sem coleção" }, color = SwitchColors.Muted, fontSize = (u.value * 0.025f).sp)
                                 }
                             }
                         }
                         "Nome do jogo" -> {
-                            Text("Defina o nome que será exibido na biblioteca.", color = SwitchColors.Muted, fontSize = (u.value * 0.029f).sp)
+                            Text("Nome exibido na biblioteca.", color = SwitchColors.Muted, fontSize = (u.value * 0.026f).sp)
                             SwitchTextField(
                                 label = "Nome do jogo", value = draftTitle, onValueChange = onDraftTitle,
                                 title = "Insira o nome do jogo.", subtitle = "Este nome aparece na tela inicial.",
@@ -327,34 +322,35 @@ fun EditPage(
                             )
                         }
                         "Grupo / coleção" -> {
-                            Text("Organize seus jogos em coleções. Use o mesmo nome em vários jogos para agrupá-los.", color = SwitchColors.Muted, fontSize = (u.value * 0.029f).sp)
+                            Text("Agrupe jogos usando o mesmo nome de coleção.", color = SwitchColors.Muted, fontSize = (u.value * 0.026f).sp)
                             SwitchTextField(
                                 label = "Grupo / coleção", value = draftGroup, onValueChange = onDraftGroup,
-                                title = "Insira o nome do grupo.", subtitle = "Ex.: Corrida, Aventura ou Favoritos.",
+                                title = "Insira o nome do grupo.", subtitle = "Ex.: Corrida ou Aventura.",
                                 maxLength = 30, modifier = Modifier.fillMaxWidth(0.88f)
                             )
                         }
                         "Favoritos" -> {
-                            Text("Adicione este jogo à sua lista de favoritos.", color = SwitchColors.Muted, fontSize = (u.value * 0.029f).sp)
-                            SwitchButton(
+                            CompactEditAction(
                                 if (favorite) "Remover dos favoritos" else "Adicionar aos favoritos",
-                                { onFavorite(!favorite) }, icon = Icons.Rounded.Favorite, primary = favorite
+                                Icons.Rounded.Favorite,
+                                { onFavorite(!favorite) }, u, accent = favorite
                             )
                         }
                         "Capa do jogo" -> {
-                            Row(Modifier.fillMaxWidth(), verticalAlignment = Alignment.CenterVertically, horizontalArrangement = Arrangement.spacedBy(u * 0.035f)) {
-                                Box(Modifier.size(u * 0.28f).background(SwitchColors.Card, RoundedCornerShape(3.dp)), contentAlignment = Alignment.Center) {
+                            Row(
+                                Modifier.fillMaxWidth(),
+                                verticalAlignment = Alignment.CenterVertically,
+                                horizontalArrangement = Arrangement.spacedBy(u * 0.025f)
+                            ) {
+                                Box(Modifier.size(u * 0.24f).clip(RoundedCornerShape(2.dp)).background(SwitchColors.Card), contentAlignment = Alignment.Center) {
                                     if (cover != null) Image(bitmap = cover, contentDescription = "Capa atual", contentScale = ContentScale.Crop, modifier = Modifier.fillMaxSize())
-                                    else Column(horizontalAlignment = Alignment.CenterHorizontally, verticalArrangement = Arrangement.spacedBy(u * 0.01f)) {
-                                        Icon(Icons.Rounded.SportsEsports, null, tint = SwitchColors.Muted, modifier = Modifier.size(u * 0.09f))
-                                        Text("SEM CAPA", color = SwitchColors.Muted, fontSize = (u.value * 0.024f).sp, fontWeight = FontWeight.Bold)
-                                    }
+                                    else Icon(Icons.Rounded.SportsEsports, null, tint = SwitchColors.Muted, modifier = Modifier.size(u * 0.09f))
                                 }
-                                Column(verticalArrangement = Arrangement.spacedBy(u * 0.018f)) {
-                                    Text("Escolha uma imagem para representar o jogo.", color = SwitchColors.Muted, fontSize = (u.value * 0.029f).sp)
-                                    SwitchButton("Buscar capa", onSearchCover, icon = Icons.Rounded.Search)
-                                    SwitchButton("Galeria", onGallery, icon = Icons.Rounded.Image)
-                                    if (cover != null) SwitchButton("Remover capa", onRemoveCover, icon = Icons.Rounded.Delete)
+                                Column(verticalArrangement = Arrangement.spacedBy(u * 0.009f)) {
+                                    Text("Imagem de capa", color = SwitchColors.Muted, fontSize = (u.value * 0.026f).sp)
+                                    CompactEditAction("Buscar capa", Icons.Rounded.Search, onSearchCover, u)
+                                    CompactEditAction("Galeria", Icons.Rounded.Image, onGallery, u)
+                                    if (cover != null) CompactEditAction("Remover capa", Icons.Rounded.Delete, onRemoveCover, u, danger = true)
                                 }
                             }
                         }
@@ -362,6 +358,37 @@ fun EditPage(
                 }
             }
         }
+    }
+}
+
+@Composable
+private fun CompactEditAction(
+    label: String,
+    icon: androidx.compose.ui.graphics.vector.ImageVector,
+    onClick: () -> Unit,
+    unit: androidx.compose.ui.unit.Dp,
+    accent: Boolean = false,
+    danger: Boolean = false
+) {
+    val tint = when {
+        danger -> Color(0xFFE05252)
+        accent -> SwitchColors.Teal
+        else -> SwitchColors.Ink
+    }
+    Row(
+        Modifier.clip(RoundedCornerShape(5.dp))
+            .gamepadA(onClick)
+            .combinedClickable(
+                interactionSource = remember { MutableInteractionSource() },
+                indication = null,
+                onClick = onClick
+            )
+            .padding(horizontal = unit * 0.012f, vertical = unit * 0.008f),
+        verticalAlignment = Alignment.CenterVertically,
+        horizontalArrangement = Arrangement.spacedBy(unit * 0.009f)
+    ) {
+        Icon(icon, contentDescription = label, tint = tint, modifier = Modifier.size(unit * 0.032f))
+        Text(label, color = tint, fontSize = (unit.value * 0.026f).sp, maxLines = 1, overflow = TextOverflow.Ellipsis)
     }
 }
 
