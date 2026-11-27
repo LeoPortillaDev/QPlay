@@ -59,6 +59,7 @@ import androidx.compose.ui.draw.clip
 import androidx.compose.ui.draw.shadow
 import androidx.compose.ui.focus.FocusRequester
 import androidx.compose.ui.focus.focusRequester
+import androidx.compose.ui.focus.focusRequester
 import androidx.compose.ui.focus.onFocusChanged
 import androidx.compose.ui.graphics.Brush
 import androidx.compose.ui.graphics.Color
@@ -270,6 +271,8 @@ fun EditPage(
 ) {
     var selectedSection by remember { mutableStateOf("Informações do software") }
     val sections = listOf("Informações do software", "Nome do jogo", "Grupo / coleção", "Favoritos", "Capa do jogo")
+    val firstSection = remember { FocusRequester() }
+    LaunchedEffect(Unit) { delay(80); runCatching { firstSection.requestFocus() } }
 
     SwitchPage(title = "Personalizar jogo", subtitle = gameName, hints = BackOk) { u ->
         Column(Modifier.fillMaxSize()) {
@@ -293,8 +296,9 @@ fun EditPage(
                     Modifier.weight(0.29f).fillMaxHeight().verticalScroll(rememberScrollState()),
                     verticalArrangement = Arrangement.spacedBy(u * 0.006f)
                 ) {
-                    sections.forEach { section ->
-                        SwitchListItem(section, selectedSection == section, { selectedSection = section })
+                    sections.forEachIndexed { index, section ->
+                        SwitchListItem(section, selectedSection == section, { selectedSection = section },
+                            if (index == 0) Modifier.focusRequester(firstSection) else Modifier)
                     }
                     Spacer(Modifier.height(u * 0.008f))
                     CompactEditAction("Cancelar", Icons.Rounded.Close, onCancel, u)
@@ -387,8 +391,12 @@ private fun CompactEditAction(
         accent -> SwitchColors.Teal
         else -> SwitchColors.Ink
     }
+    var focused by remember { mutableStateOf(false) }
+    val shape = RoundedCornerShape(5.dp)
     Row(
-        Modifier.clip(RoundedCornerShape(5.dp))
+        Modifier.onFocusChanged { focused = it.isFocused }
+            .clip(shape)
+            .then(if (focused) Modifier.border(2.dp, SwitchColors.Cyan, shape) else Modifier)
             .gamepadA(onClick)
             .combinedClickable(
                 interactionSource = remember { MutableInteractionSource() },
