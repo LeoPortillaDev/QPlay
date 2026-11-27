@@ -87,6 +87,7 @@ import androidx.documentfile.provider.DocumentFile
 import com.qplay.launcher.ui.ButtonHint
 import com.qplay.launcher.ui.KeyboardRequest
 import com.qplay.launcher.ui.LocalSwitchKeyboard
+import com.qplay.launcher.ui.LocalUiSound
 import com.qplay.launcher.ui.QPlayTheme
 import com.qplay.launcher.ui.SwitchAvatar
 import com.qplay.launcher.ui.SwitchBottomBar
@@ -554,7 +555,12 @@ class MainActivity : ComponentActivity() {
         }
 
         // Botão B do controle = voltar
-        CompositionLocalProvider(LocalSwitchKeyboard provides { req: KeyboardRequest -> keyboard = req }) {
+        CompositionLocalProvider(
+            LocalSwitchKeyboard provides { req: KeyboardRequest -> keyboard = req },
+            LocalUiSound provides { confirmed ->
+                playUiTone(if (confirmed) android.media.ToneGenerator.TONE_PROP_ACK else android.media.ToneGenerator.TONE_PROP_BEEP2)
+            }
+        ) {
         Box(Modifier.fillMaxSize().onKeyEvent { ev ->
             if (ev.key == Key.ButtonB) {
                 if (ev.type == KeyEventType.KeyUp) onBackPressedDispatcher.onBackPressed()
