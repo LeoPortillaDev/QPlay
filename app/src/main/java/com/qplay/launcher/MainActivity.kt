@@ -279,7 +279,7 @@ class MainActivity : ComponentActivity() {
             if (depth > 8 || found.size >= 500) return
             dir.listFiles().forEach { file ->
                 if (file.isDirectory) walk(file, depth + 1)
-                else if (file.isFile && file.name?.substringAfterLast('.', "")?.lowercase() in setOf("nup", "nsp", "xci")) {
+                else if (file.isFile && file.name?.substringAfterLast('.', "")?.lowercase()?.let { it in setOf("nup", "nsp", "xci") } == true) {
                     val filename = file.name ?: "Jogo"
                     found.add(NupGame(filename.substringBeforeLast('.').replace('_', ' '), file.uri, filename))
                 }
