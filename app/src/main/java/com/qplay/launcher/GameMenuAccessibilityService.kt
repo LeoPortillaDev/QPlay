@@ -14,6 +14,7 @@ import android.view.WindowManager
 import android.widget.FrameLayout
 import android.widget.LinearLayout
 import android.widget.TextView
+import android.view.ViewGroup
 import android.view.accessibility.AccessibilityEvent
 
 /**
@@ -26,7 +27,7 @@ class GameMenuAccessibilityService : AccessibilityService() {
     private var overlay: View? = null
     private var windowManager: WindowManager? = null
     private var selected = 0
-    private val options = listOf("Continuar jogo", "Fechar jogo e voltar ao QPlay")
+    private val options = listOf("Voltar ao jogo", "Encerrar e voltar à biblioteca")
     private var optionViews: List<TextView> = emptyList()
 
     override fun onServiceConnected() {
@@ -91,15 +92,17 @@ class GameMenuAccessibilityService : AccessibilityService() {
             setBackgroundColor(0x99000000.toInt())
             isClickable = true
             isFocusable = true
+            isFocusableInTouchMode = true
+            descendantFocusability = ViewGroup.FOCUS_BLOCK_DESCENDANTS
         }
         val panel = LinearLayout(this).apply {
             orientation = LinearLayout.VERTICAL
             gravity = Gravity.CENTER
-            setPadding(48, 38, 48, 38)
-            background = rounded(0xFFF1F1F1.toInt(), 22)
+            setPadding(36, 30, 36, 26)
+            background = rounded(0xFFF5F5F5.toInt(), 24)
         }
         val title = TextView(this).apply {
-            text = "MENU DO QPLAY"
+            text = "MENU DO JOGO"
             setTextColor(0xFF202020.toInt())
             textSize = 23f
             typeface = Typeface.DEFAULT_BOLD
@@ -117,7 +120,7 @@ class GameMenuAccessibilityService : AccessibilityService() {
                 background = rounded(if (index == 0) 0xFFBCEBFA.toInt() else 0xFFE2E2E2.toInt(), 12)
                 isClickable = true
                 setOnClickListener { selected = index; activateSelection() }
-                val params = LinearLayout.LayoutParams(560, LinearLayout.LayoutParams.WRAP_CONTENT)
+                val params = LinearLayout.LayoutParams(460, LinearLayout.LayoutParams.WRAP_CONTENT)
                 params.topMargin = 10
                 panel.addView(this, params)
             }
@@ -141,13 +144,13 @@ class GameMenuAccessibilityService : AccessibilityService() {
             WindowManager.LayoutParams.MATCH_PARENT,
             WindowManager.LayoutParams.TYPE_ACCESSIBILITY_OVERLAY,
             WindowManager.LayoutParams.FLAG_LAYOUT_IN_SCREEN or
-                WindowManager.LayoutParams.FLAG_NOT_FOCUSABLE or
                 WindowManager.LayoutParams.FLAG_NOT_TOUCH_MODAL,
             android.graphics.PixelFormat.TRANSLUCENT
         )
         runCatching {
             windowManager?.addView(root, params)
             overlay = root
+            root.requestFocus()
             refreshSelection()
         }
     }
