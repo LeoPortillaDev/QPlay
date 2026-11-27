@@ -37,6 +37,7 @@ import androidx.compose.foundation.layout.size
 import androidx.compose.foundation.layout.windowInsetsPadding
 import androidx.compose.foundation.lazy.LazyRow
 import androidx.compose.foundation.lazy.itemsIndexed
+import androidx.compose.foundation.lazy.rememberLazyListState
 import androidx.compose.material.icons.Icons
 import androidx.compose.material.icons.rounded.Apps
 import androidx.compose.material.icons.rounded.Favorite
@@ -73,6 +74,7 @@ import androidx.compose.ui.input.key.onKeyEvent
 import androidx.compose.ui.input.key.type
 import androidx.compose.ui.layout.ContentScale
 import androidx.compose.ui.text.font.FontWeight
+import androidx.compose.ui.text.style.TextAlign
 import androidx.compose.ui.text.style.TextOverflow
 import androidx.compose.ui.unit.Dp
 import androidx.compose.ui.unit.dp
@@ -121,7 +123,8 @@ private const val STATUS_TOP = 0.062f
 private const val STATUS_END = 0.094f
 private const val TILE_SIZE = 0.356f
 private const val TILE_TOP = 0.270f
-private const val TILE_START = 0.149f
+private const val TILE_VIEWPORT_SIDE = 0.120f
+private const val TILE_EDGE_INSET = 0.032f
 private const val TILE_GAP = 0.019f
 private const val CAPTION_TOP = 0.648f
 private const val DOCK_TOP = 0.665f
@@ -633,6 +636,8 @@ class MainActivity : ComponentActivity() {
         onQuit: () -> Unit
     ) {
         var focusedName by remember { mutableStateOf("") }
+        var focusedIndex by remember { mutableIntStateOf(0) }
+        val gamesListState = rememberLazyListState()
         var dockFocus by remember { mutableIntStateOf(-1) }
         val firstFocus = remember { FocusRequester() }
 
@@ -673,8 +678,13 @@ class MainActivity : ComponentActivity() {
             // Fileira de jogos + espaços vazios
             val emptyCount = (MIN_SLOTS - entries.size).coerceAtLeast(2)
             LazyRow(
-                modifier = Modifier.align(Alignment.TopStart).offset(y = u * (TILE_TOP - 0.03f)).fillMaxWidth().height(tile + u * 0.06f),
-                contentPadding = PaddingValues(start = u * TILE_START, end = u * TILE_START, top = u * 0.03f, bottom = u * 0.03f),
+                state = gamesListState,
+                modifier = Modifier.align(Alignment.TopStart)
+                    .offset(y = u * (TILE_TOP - 0.03f))
+                    .padding(horizontal = u * TILE_VIEWPORT_SIDE)
+                    .fillMaxWidth()
+                    .height(tile + u * 0.06f),
+                contentPadding = PaddingValues(start = u * TILE_EDGE_INSET, end = u * TILE_EDGE_INSET, top = u * 0.03f, bottom = u * 0.03f),
                 horizontalArrangement = Arrangement.spacedBy(u * TILE_GAP),
                 verticalAlignment = Alignment.CenterVertically
             ) {
@@ -688,7 +698,7 @@ class MainActivity : ComponentActivity() {
                         modifier = if (i == 0) Modifier.focusRequester(firstFocus) else Modifier,
                         onClick = { onOpen(e) },
                         onLongClick = { onEdit(e) },
-                        onFocused = { focusedName = it }
+                        onFocused = { focusedName = it; focusedIndex = i }
                     )
                 }
                 items(emptyCount, key = { "empty:$it" }) { i ->
@@ -696,30 +706,50 @@ class MainActivity : ComponentActivity() {
                 }
             }
 
-            // Nome do jogo selecionado (ou mensagem de estado) logo abaixo da fileira
+            // O nome fica acima da capa selecionada, centralizado sobre o próprio jogo.
+            val focusedItemOffset = gamesListState.layoutInfo.visibleItemsInfo
+                .firstOrNull { it.index == focusedIndex }?.offset ?: 0
+            val density = androidx.compose.ui.platform.LocalDensity.current
+            if (focusedName.isNotBlank() && dockFocus < 0 && entries.isNotEmpty()) {
+                Box(
+                    Modifier.align(Alignment.TopStart)
+                        .padding(start = u * TILE_VIEWPORT_SIDE, top = u * (TILE_TOP - 0.075f))
+                        .offset(x = with(density) { focusedItemOffset.toDp() })
+                        .width(tile),
+                    contentAlignment = Alignment.Center
+                ) {
+                    Text(
+                        focusedName,
+                        color = SwitchColors.Teal,
+                        fontSize = labelSize.sp,
+                        fontWeight = FontWeight.Medium,
+                        maxLines = 1,
+                        overflow = TextOverflow.Ellipsis,
+                        textAlign = TextAlign.Center,
+                        modifier = Modifier.fillMaxWidth()
+                    )
+                }
+            }
+
+            // Mensagens de estado só aparecem quando a biblioteca está vazia ou carregando.
             val emptyState = scanning || totalEntries == 0 || entries.isEmpty()
             val caption = when {
                 dockFocus >= 0 -> ""
                 scanning || totalEntries == 0 -> scanMessage
                 entries.isEmpty() -> "Nada em “$filter”. Troque o filtro em Configurações > Biblioteca."
-                else -> focusedName
+                else -> ""
             }
             if (caption.isNotEmpty()) {
                 Text(
                     caption,
-                    color = if (emptyState) SwitchColors.Muted else SwitchColors.Teal,
+                    color = SwitchColors.Muted,
                     fontSize = labelSize.sp,
-                    maxLines = 1,
+                    maxLines = 2,
                     overflow = TextOverflow.Ellipsis,
-                    textAlign = if (emptyState) androidx.compose.ui.text.style.TextAlign.Center else androidx.compose.ui.text.style.TextAlign.Start,
-                    modifier = if (emptyState) {
-                        Modifier.align(Alignment.TopCenter)
-                            .padding(start = u * TILE_START, end = u * TILE_START, top = u * 0.185f)
-                            .fillMaxWidth()
-                    } else {
-                        Modifier.align(Alignment.TopStart)
-                            .padding(start = u * TILE_START, end = u * TILE_START, top = u * CAPTION_TOP)
-                    }
+                    textAlign = TextAlign.Center,
+                    modifier = Modifier.align(Alignment.TopCenter)
+                        .padding(start = u * TILE_VIEWPORT_SIDE, end = u * TILE_VIEWPORT_SIDE, top = u * 0.185f)
+                        .fillMaxWidth()
                 )
             }
 
