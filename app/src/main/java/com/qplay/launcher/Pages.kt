@@ -74,6 +74,7 @@ import androidx.compose.ui.unit.dp
 import androidx.compose.ui.unit.sp
 import androidx.compose.ui.zIndex
 import com.qplay.launcher.ui.ButtonHint
+import com.qplay.launcher.ui.LocalUiSound
 import com.qplay.launcher.ui.SwitchButton
 import com.qplay.launcher.ui.SwitchColors
 import com.qplay.launcher.ui.SwitchListItem
@@ -232,13 +233,15 @@ fun SettingsPage(
 @Composable
 private fun Swatch(color: Color?, selected: Boolean, size: androidx.compose.ui.unit.Dp, onClick: () -> Unit) {
     var focused by remember { mutableStateOf(false) }
+    val uiSound = LocalUiSound.current
+    val activate = { uiSound(true); onClick() }
     val fill = color ?: Color(0xFF1FC6B5)
     Box(
         Modifier
             .size(size)
-            .onFocusChanged { focused = it.isFocused }
-            .gamepadA(onClick)
-            .combinedClickable(interactionSource = remember { MutableInteractionSource() }, indication = null, onClick = onClick)
+            .onFocusChanged { focused = it.isFocused; if (it.isFocused) uiSound(false) }
+            .gamepadA(activate)
+            .combinedClickable(interactionSource = remember { MutableInteractionSource() }, indication = null, onClick = activate)
             .shadow(2.dp, CircleShape)
             .background(fill, CircleShape)
             .border(
@@ -392,16 +395,18 @@ private fun CompactEditAction(
         else -> SwitchColors.Ink
     }
     var focused by remember { mutableStateOf(false) }
+    val uiSound = LocalUiSound.current
+    val activate = { uiSound(true); onClick() }
     val shape = RoundedCornerShape(5.dp)
     Row(
-        Modifier.onFocusChanged { focused = it.isFocused }
+        Modifier.onFocusChanged { focused = it.isFocused; if (it.isFocused) uiSound(false) }
             .clip(shape)
             .then(if (focused) Modifier.border(2.dp, SwitchColors.Cyan, shape) else Modifier)
-            .gamepadA(onClick)
+            .gamepadA(activate)
             .combinedClickable(
                 interactionSource = remember { MutableInteractionSource() },
                 indication = null,
-                onClick = onClick
+                onClick = activate
             )
             .padding(horizontal = unit * 0.012f, vertical = unit * 0.008f),
         verticalAlignment = Alignment.CenterVertically,
@@ -477,6 +482,8 @@ fun CoversPage(
 @Composable
 private fun CoverResultTile(hit: CoverCatalog.Hit, onClick: () -> Unit) {
     var focused by remember { mutableStateOf(false) }
+    val uiSound = LocalUiSound.current
+    val activate = { uiSound(true); onClick() }
     val scale by animateFloatAsState(if (focused) 1.05f else 1f, label = "cover-scale")
     val preview by produceState<ImageBitmap?>(null, hit.url) {
         value = withContext(Dispatchers.IO) { CoverCatalog.loadBitmap(hit.url)?.asImageBitmap() }
@@ -485,9 +492,9 @@ private fun CoverResultTile(hit: CoverCatalog.Hit, onClick: () -> Unit) {
     Column(
         Modifier
             .zIndex(if (focused) 1f else 0f)
-            .onFocusChanged { focused = it.isFocused }
-            .gamepadA(onClick)
-            .combinedClickable(interactionSource = remember { MutableInteractionSource() }, indication = null, onClick = onClick)
+            .onFocusChanged { focused = it.isFocused; if (it.isFocused) uiSound(false) }
+            .gamepadA(activate)
+            .combinedClickable(interactionSource = remember { MutableInteractionSource() }, indication = null, onClick = activate)
             .graphicsLayer { scaleX = scale; scaleY = scale },
         verticalArrangement = Arrangement.spacedBy(6.dp)
     ) {
@@ -551,6 +558,8 @@ fun AppsPage(
 @Composable
 private fun AppRow(app: InstalledApp, selected: Boolean, onToggle: () -> Unit, onLaunch: () -> Unit, modifier: Modifier) {
     var focused by remember { mutableStateOf(false) }
+    val uiSound = LocalUiSound.current
+    val activate = { uiSound(true); onToggle() }
     val shape = RoundedCornerShape(4.dp)
     val borderColor = when {
         focused -> SwitchColors.Cyan
@@ -560,12 +569,12 @@ private fun AppRow(app: InstalledApp, selected: Boolean, onToggle: () -> Unit, o
     Row(
         modifier
             .fillMaxWidth()
-            .onFocusChanged { focused = it.isFocused }
-            .gamepadA(onToggle)
+            .onFocusChanged { focused = it.isFocused; if (it.isFocused) uiSound(false) }
+            .gamepadA(activate)
             .combinedClickable(
                 interactionSource = remember { MutableInteractionSource() },
                 indication = null,
-                onClick = onToggle,
+                onClick = activate,
                 onLongClick = onLaunch
             )
             .background(SwitchColors.Surface, shape)
