@@ -6,8 +6,9 @@ import android.content.SharedPreferences
 import android.content.pm.PackageManager
 import android.graphics.Bitmap
 import android.graphics.BitmapFactory
-import android.media.AudioManager
-import android.media.ToneGenerator
+import android.media.AudioAttributes
+import android.media.AudioFormat
+import android.media.AudioTrack
 import android.net.Uri
 import android.os.Build
 import android.os.Bundle
@@ -172,8 +173,6 @@ class MainActivity : ComponentActivity() {
     }
 
     override fun onDestroy() {
-        uiToneGenerator?.release()
-        uiToneGenerator = null
         super.onDestroy()
     }
 
@@ -200,20 +199,57 @@ class MainActivity : ComponentActivity() {
         }?.packageName
     }
 
-    private var uiToneGenerator: ToneGenerator? = null
-    private var uiToneVolume: Int = -1
-
     private fun playUiTone(tone: Int) {
         val prefs = getSharedPreferences("qplay_library", MODE_PRIVATE)
         if (!prefs.getBoolean("ui_sounds_enabled", true)) return
-        val volume = prefs.getInt("ui_sound_volume", 35).coerceIn(0, 100)
-        if (volume == 0) return
-        if (uiToneGenerator == null || uiToneVolume != volume) {
-            uiToneGenerator?.release()
-            uiToneGenerator = ToneGenerator(AudioManager.STREAM_MUSIC, volume)
-            uiToneVolume = volume
+        val volume = prefs.getInt("ui_sound_volume", 35).coerceIn(0, 100) / 100f
+        if (volume <= 0f) return
+
+        // Efeitos originais sintetizados: seno suave, ataque/cauda curtos e sem o timbre
+        // quadrado/estridente do ToneGenerator do telefone.
+        val sampleRate = 44100
+        val durationMs = if (tone == android.media.ToneGenerator.TONE_PROP_ACK) 105 else 48
+        val count = sampleRate * durationMs / 1000
+        val samples = ShortArray(count)
+        val baseHz = if (tone == android.media.ToneGenerator.TONE_PROP_ACK) 1046.5 else 784.0
+        for (i in samples.indices) {
+            val t = i.toDouble() / sampleRate
+            val progress = i.toDouble() / count
+            val attack = (progress / 0.12).coerceIn(0.0, 1.0)
+            val release = ((1.0 - progress) / 0.30).coerceIn(0.0, 1.0)
+            val envelope = kotlin.math.min(attack, release)
+            val glide = 1.0 - progress * 0.10
+            val fundamental = kotlin.math.sin(2.0 * Math.PI * baseHz * glide * t)
+            val harmonic = kotlin.math.sin(2.0 * Math.PI * baseHz * 2.01 * t) * 0.12
+            val value = (fundamental + harmonic) * envelope * volume * 0.20
+            samples[i] = (value * Short.MAX_VALUE).toInt().toShort()
         }
-        uiToneGenerator?.startTone(tone, 65)
+        runCatching {
+            val track = AudioTrack.Builder()
+                .setAudioAttributes(
+                    AudioAttributes.Builder()
+                        .setUsage(AudioAttributes.USAGE_GAME)
+                        .setContentType(AudioAttributes.CONTENT_TYPE_SONIFICATION)
+                        .build()
+                )
+                .setAudioFormat(
+                    AudioFormat.Builder()
+                        .setEncoding(AudioFormat.ENCODING_PCM_16BIT)
+                        .setSampleRate(sampleRate)
+                        .setChannelMask(AudioFormat.CHANNEL_OUT_MONO)
+                        .build()
+                )
+                .setBufferSizeInBytes(samples.size * 2)
+                .setTransferMode(AudioTrack.MODE_STATIC)
+                .build()
+            track.write(samples, 0, samples.size)
+            track.setVolume(1f)
+            track.play()
+            android.os.Handler(android.os.Looper.getMainLooper()).postDelayed({
+                runCatching { track.stop() }
+                track.release()
+            }, durationMs.toLong() + 45L)
+        }
     }
 
     private fun toast(text: String, long: Boolean = false) {
