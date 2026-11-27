@@ -103,6 +103,8 @@ fun SettingsPage(
     onPickAvatar: () -> Unit,
     onRemoveAvatar: () -> Unit,
     onAccent: (Color?) -> Unit,
+    darkMode: Boolean,
+    onDarkMode: (Boolean) -> Unit,
     folderLabel: String,
     onPickFolder: () -> Unit,
     onApps: () -> Unit,
@@ -127,7 +129,7 @@ fun SettingsPage(
                 }
             }
             Spacer(Modifier.width(u * 0.04f))
-            Box(Modifier.width(1.dp).fillMaxHeight().background(Color(0xFFBDBDBD)))
+            Box(Modifier.width(1.dp).fillMaxHeight().background(SwitchColors.Border))
             Spacer(Modifier.width(u * 0.04f))
             Column(
                 Modifier.weight(1f).fillMaxHeight().verticalScroll(rememberScrollState()),
@@ -140,7 +142,7 @@ fun SettingsPage(
                         Row(verticalAlignment = Alignment.CenterVertically, horizontalArrangement = Arrangement.spacedBy(u * 0.04f)) {
                             Box(
                                 Modifier.size(u * 0.2f).shadow(2.dp, CircleShape).clip(CircleShape).background(Color(0xFF7FDDEB))
-                                    .border(3.dp, Color.White, CircleShape),
+                                    .border(3.dp, SwitchColors.Surface, CircleShape),
                                 contentAlignment = Alignment.Center
                             ) {
                                 if (avatar != null) Image(bitmap = avatar, contentDescription = "Avatar", contentScale = ContentScale.Crop, modifier = Modifier.fillMaxSize())
@@ -158,7 +160,12 @@ fun SettingsPage(
                         )
                     }
                     "Aparência" -> {
-                        Text("Escolha a cor de destaque da seleção.", color = SwitchColors.Muted, fontSize = body)
+                        Text("Escolha o tema e a cor de destaque do Switch.", color = SwitchColors.Muted, fontSize = body)
+                        Row(horizontalArrangement = Arrangement.spacedBy(u * 0.02f), verticalAlignment = Alignment.CenterVertically) {
+                            SwitchButton("Modo claro", { onDarkMode(false) }, primary = !darkMode)
+                            SwitchButton("Modo escuro", { onDarkMode(true) }, primary = darkMode)
+                        }
+                        Text("Cor de destaque da seleção", color = SwitchColors.Muted, fontSize = body)
                         Row(horizontalArrangement = Arrangement.spacedBy(u * 0.03f), verticalAlignment = Alignment.CenterVertically) {
                             Swatch(null, SwitchColors.customAccent == null, u * 0.085f) { onAccent(null) }
                             AccentChoices.forEach { c -> Swatch(c, SwitchColors.customAccent == c, u * 0.085f) { onAccent(c) } }
@@ -215,7 +222,7 @@ private fun Swatch(color: Color?, selected: Boolean, size: androidx.compose.ui.u
             .background(fill, CircleShape)
             .border(
                 if (focused || selected) 4.dp else 2.dp,
-                if (focused) SwitchColors.Cyan else if (selected) SwitchColors.Ink else Color.White,
+                if (focused) SwitchColors.Cyan else if (selected) SwitchColors.Ink else SwitchColors.Surface,
                 CircleShape
             )
     )
@@ -241,105 +248,117 @@ fun EditPage(
     onSave: () -> Unit,
     onCancel: () -> Unit
 ) {
+    var selectedSection by remember { mutableStateOf("Informações do software") }
+    val sections = listOf("Informações do software", "Nome do jogo", "Grupo / coleção", "Favoritos", "Capa do jogo")
+
     SwitchPage(title = "Personalizar jogo", subtitle = gameName, hints = BackOk) { u ->
-        Row(
-            Modifier.fillMaxSize().padding(horizontal = u * 0.045f, vertical = u * 0.015f),
-            horizontalArrangement = Arrangement.spacedBy(u * 0.045f),
-            verticalAlignment = Alignment.CenterVertically
-        ) {
-            // Cartão da capa: menor e com proporção de caixa de jogo, sem disputar espaço com os controles.
-            Column(
-                Modifier.weight(0.30f).fillMaxHeight(),
-                horizontalAlignment = Alignment.CenterHorizontally,
-                verticalArrangement = Arrangement.Center
+        Column(Modifier.fillMaxSize()) {
+            Row(
+                Modifier.fillMaxWidth().padding(horizontal = u * 0.025f, vertical = u * 0.012f),
+                verticalAlignment = Alignment.CenterVertically,
+                horizontalArrangement = Arrangement.spacedBy(u * 0.025f)
             ) {
-                Text(
-                    "CAPA DO JOGO",
-                    color = SwitchColors.Muted,
-                    fontSize = (u.value * 0.025f).sp,
-                    fontWeight = FontWeight.Bold,
-                    letterSpacing = 1.sp
-                )
-                Spacer(Modifier.height(u * 0.014f))
-                SwitchTileFrame(size = u * 0.30f, focused = false) {
-                    Box(Modifier.fillMaxSize(), contentAlignment = Alignment.Center) {
-                        if (cover != null) {
-                            Image(bitmap = cover, contentDescription = "Capa atual", contentScale = ContentScale.Crop, modifier = Modifier.fillMaxSize())
-                        } else {
-                            Column(horizontalAlignment = Alignment.CenterHorizontally, verticalArrangement = Arrangement.spacedBy(u * 0.012f)) {
-                                Icon(Icons.Rounded.SportsEsports, null, tint = Color(0xFF777777), modifier = Modifier.size(u * 0.085f))
-                                Text("SEM CAPA", color = Color(0xFF999999), fontSize = (u.value * 0.024f).sp, fontWeight = FontWeight.Bold)
+                Box(
+                    Modifier.size(u * 0.105f).background(SwitchColors.Card, RoundedCornerShape(3.dp)),
+                    contentAlignment = Alignment.Center
+                ) {
+                    if (cover != null) {
+                        Image(bitmap = cover, contentDescription = "Capa do jogo", contentScale = ContentScale.Crop, modifier = Modifier.fillMaxSize())
+                    } else {
+                        Icon(Icons.Rounded.SportsEsports, null, tint = SwitchColors.Muted, modifier = Modifier.size(u * 0.06f))
+                    }
+                }
+                Column(verticalArrangement = Arrangement.spacedBy(3.dp)) {
+                    Text(draftTitle.ifBlank { gameName }, color = SwitchColors.Ink, fontSize = (u.value * 0.043f).sp, maxLines = 1, overflow = TextOverflow.Ellipsis)
+                    Text("PERSONALIZAÇÃO DA BIBLIOTECA", color = SwitchColors.Muted, fontSize = (u.value * 0.023f).sp, letterSpacing = 1.sp)
+                }
+            }
+            Box(Modifier.fillMaxWidth().height(1.dp).background(SwitchColors.Border))
+            Row(
+                Modifier.fillMaxSize().padding(horizontal = u * 0.025f, vertical = u * 0.018f),
+                horizontalArrangement = Arrangement.spacedBy(u * 0.035f)
+            ) {
+                Column(
+                    Modifier.weight(0.31f).fillMaxHeight().verticalScroll(rememberScrollState()),
+                    verticalArrangement = Arrangement.spacedBy(u * 0.009f)
+                ) {
+                    sections.forEach { section ->
+                        SwitchListItem(
+                            label = section,
+                            selected = selectedSection == section,
+                            onClick = { selectedSection = section }
+                        )
+                    }
+                    Spacer(Modifier.height(u * 0.015f))
+                    SwitchButton("Salvar alterações", onSave, primary = true)
+                    SwitchButton("Cancelar", onCancel)
+                }
+                Box(Modifier.width(1.dp).fillMaxHeight().background(SwitchColors.Border))
+                Column(
+                    Modifier.weight(0.69f).fillMaxHeight().verticalScroll(rememberScrollState()).padding(start = u * 0.025f, end = u * 0.015f),
+                    verticalArrangement = Arrangement.spacedBy(u * 0.025f)
+                ) {
+                    Text(selectedSection, color = SwitchColors.Teal, fontSize = (u.value * 0.041f).sp, fontWeight = FontWeight.Medium)
+                    when (selectedSection) {
+                        "Informações do software" -> {
+                            Text("Gerencie como este jogo aparece na biblioteca do Switch.", color = SwitchColors.Muted, fontSize = (u.value * 0.029f).sp)
+                            Row(
+                                Modifier.fillMaxWidth().padding(top = u * 0.018f),
+                                verticalAlignment = Alignment.CenterVertically,
+                                horizontalArrangement = Arrangement.spacedBy(u * 0.025f)
+                            ) {
+                                Box(Modifier.size(u * 0.20f).background(SwitchColors.Card, RoundedCornerShape(3.dp)), contentAlignment = Alignment.Center) {
+                                    if (cover != null) Image(bitmap = cover, contentDescription = "Capa", contentScale = ContentScale.Crop, modifier = Modifier.fillMaxSize())
+                                    else Icon(Icons.Rounded.SportsEsports, null, tint = SwitchColors.Muted, modifier = Modifier.size(u * 0.09f))
+                                }
+                                Column(verticalArrangement = Arrangement.spacedBy(u * 0.014f)) {
+                                    Text(draftTitle.ifBlank { gameName }, color = SwitchColors.Ink, fontSize = (u.value * 0.035f).sp, maxLines = 2, overflow = TextOverflow.Ellipsis)
+                                    Text(if (favorite) "Adicionado aos favoritos" else "Não está nos favoritos", color = SwitchColors.Muted, fontSize = (u.value * 0.027f).sp)
+                                    Text(draftGroup.ifBlank { "Sem grupo ou coleção" }, color = SwitchColors.Muted, fontSize = (u.value * 0.027f).sp)
+                                }
+                            }
+                        }
+                        "Nome do jogo" -> {
+                            Text("Defina o nome que será exibido na biblioteca.", color = SwitchColors.Muted, fontSize = (u.value * 0.029f).sp)
+                            SwitchTextField(
+                                label = "Nome do jogo", value = draftTitle, onValueChange = onDraftTitle,
+                                title = "Insira o nome do jogo.", subtitle = "Este nome aparece na tela inicial.",
+                                maxLength = 60, modifier = Modifier.fillMaxWidth(0.88f)
+                            )
+                        }
+                        "Grupo / coleção" -> {
+                            Text("Organize seus jogos em coleções. Use o mesmo nome em vários jogos para agrupá-los.", color = SwitchColors.Muted, fontSize = (u.value * 0.029f).sp)
+                            SwitchTextField(
+                                label = "Grupo / coleção", value = draftGroup, onValueChange = onDraftGroup,
+                                title = "Insira o nome do grupo.", subtitle = "Ex.: Corrida, Aventura ou Favoritos.",
+                                maxLength = 30, modifier = Modifier.fillMaxWidth(0.88f)
+                            )
+                        }
+                        "Favoritos" -> {
+                            Text("Adicione este jogo à sua lista de favoritos.", color = SwitchColors.Muted, fontSize = (u.value * 0.029f).sp)
+                            SwitchButton(
+                                if (favorite) "Remover dos favoritos" else "Adicionar aos favoritos",
+                                { onFavorite(!favorite) }, icon = Icons.Rounded.Favorite, primary = favorite
+                            )
+                        }
+                        "Capa do jogo" -> {
+                            Row(Modifier.fillMaxWidth(), verticalAlignment = Alignment.CenterVertically, horizontalArrangement = Arrangement.spacedBy(u * 0.035f)) {
+                                Box(Modifier.size(u * 0.28f).background(SwitchColors.Card, RoundedCornerShape(3.dp)), contentAlignment = Alignment.Center) {
+                                    if (cover != null) Image(bitmap = cover, contentDescription = "Capa atual", contentScale = ContentScale.Crop, modifier = Modifier.fillMaxSize())
+                                    else Column(horizontalAlignment = Alignment.CenterHorizontally, verticalArrangement = Arrangement.spacedBy(u * 0.01f)) {
+                                        Icon(Icons.Rounded.SportsEsports, null, tint = SwitchColors.Muted, modifier = Modifier.size(u * 0.09f))
+                                        Text("SEM CAPA", color = SwitchColors.Muted, fontSize = (u.value * 0.024f).sp, fontWeight = FontWeight.Bold)
+                                    }
+                                }
+                                Column(verticalArrangement = Arrangement.spacedBy(u * 0.018f)) {
+                                    Text("Escolha uma imagem para representar o jogo.", color = SwitchColors.Muted, fontSize = (u.value * 0.029f).sp)
+                                    SwitchButton("Buscar capa", onSearchCover, icon = Icons.Rounded.Search)
+                                    SwitchButton("Galeria", onGallery, icon = Icons.Rounded.Image)
+                                    if (cover != null) SwitchButton("Remover capa", onRemoveCover, icon = Icons.Rounded.Delete)
+                                }
                             }
                         }
                     }
-                }
-                Spacer(Modifier.height(u * 0.018f))
-                Text(
-                    if (cover != null) "Imagem personalizada" else "Adicione uma arte ao jogo",
-                    color = SwitchColors.Muted,
-                    fontSize = (u.value * 0.022f).sp,
-                    maxLines = 1,
-                    overflow = TextOverflow.Ellipsis
-                )
-            }
-
-            // Painel de edição compacto, organizado em etapas como uma tela de configuração do console.
-            Column(
-                Modifier.weight(0.70f).fillMaxHeight()
-                    .background(Color(0xFFF5F5F5), RoundedCornerShape(12.dp))
-                    .border(1.dp, Color(0xFFD5D5D5), RoundedCornerShape(12.dp))
-                    .padding(horizontal = u * 0.025f, vertical = u * 0.022f),
-                verticalArrangement = Arrangement.spacedBy(u * 0.022f),
-                horizontalAlignment = Alignment.Start
-            ) {
-                Text(
-                    "INFORMAÇÕES DO JOGO",
-                    color = SwitchColors.Teal,
-                    fontSize = (u.value * 0.028f).sp,
-                    fontWeight = FontWeight.Bold,
-                    letterSpacing = 1.sp
-                )
-                Row(
-                    Modifier.fillMaxWidth(),
-                    horizontalArrangement = Arrangement.spacedBy(u * 0.018f)
-                ) {
-                    SwitchTextField(
-                        label = "Nome do jogo", value = draftTitle, onValueChange = onDraftTitle,
-                        title = "Insira o nome do jogo.", subtitle = "Nome exibido na biblioteca.",
-                        maxLength = 60, modifier = Modifier.weight(1.25f)
-                    )
-                    SwitchTextField(
-                        label = "Grupo / coleção", value = draftGroup, onValueChange = onDraftGroup,
-                        title = "Insira o nome do grupo.", subtitle = "Organize jogos em coleções.",
-                        maxLength = 30, modifier = Modifier.weight(0.9f)
-                    )
-                }
-                Row(
-                    Modifier.fillMaxWidth(),
-                    horizontalArrangement = Arrangement.spacedBy(u * 0.018f),
-                    verticalAlignment = Alignment.CenterVertically
-                ) {
-                    SwitchButton(
-                        if (favorite) "Favorito" else "Adicionar aos favoritos",
-                        { onFavorite(!favorite) },
-                        icon = Icons.Rounded.Favorite,
-                        primary = favorite
-                    )
-                    Spacer(Modifier.weight(1f))
-                    SwitchButton("Buscar capa", onSearchCover, icon = Icons.Rounded.Search)
-                    SwitchButton("Galeria", onGallery, icon = Icons.Rounded.Image)
-                    if (cover != null) SwitchButton("Remover", onRemoveCover, icon = Icons.Rounded.Delete)
-                }
-                Spacer(Modifier.weight(1f))
-                Box(Modifier.fillMaxWidth().height(1.dp).background(Color(0xFFD5D5D5)))
-                Row(
-                    Modifier.fillMaxWidth(),
-                    horizontalArrangement = Arrangement.End,
-                    verticalAlignment = Alignment.CenterVertically
-                ) {
-                    SwitchButton("Cancelar", onCancel)
-                    Spacer(Modifier.width(u * 0.018f))
-                    SwitchButton("Salvar alterações", onSave, primary = true)
                 }
             }
         }
