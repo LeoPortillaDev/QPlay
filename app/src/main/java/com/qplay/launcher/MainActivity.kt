@@ -48,6 +48,7 @@ import androidx.compose.material.icons.rounded.SportsEsports
 import androidx.compose.material3.Icon
 import androidx.compose.material3.Text
 import androidx.compose.runtime.Composable
+import androidx.compose.runtime.CompositionLocalProvider
 import androidx.compose.runtime.LaunchedEffect
 import androidx.compose.runtime.getValue
 import androidx.compose.runtime.mutableIntStateOf
@@ -78,12 +79,15 @@ import androidx.compose.ui.unit.dp
 import androidx.compose.ui.unit.sp
 import androidx.documentfile.provider.DocumentFile
 import com.qplay.launcher.ui.ButtonHint
+import com.qplay.launcher.ui.KeyboardRequest
+import com.qplay.launcher.ui.LocalSwitchKeyboard
 import com.qplay.launcher.ui.QPlayTheme
 import com.qplay.launcher.ui.SwitchAvatar
 import com.qplay.launcher.ui.SwitchBottomBar
 import com.qplay.launcher.ui.SwitchCircleButton
 import com.qplay.launcher.ui.SwitchColors
 import com.qplay.launcher.ui.SwitchEmptySlot
+import com.qplay.launcher.ui.SwitchKeyboard
 import com.qplay.launcher.ui.SwitchStatusBar
 import com.qplay.launcher.ui.SwitchTileFrame
 import com.qplay.launcher.ui.gamepadA
@@ -242,8 +246,38 @@ class MainActivity : ComponentActivity() {
     }
 
     private fun decodeUri(uri: Uri?, maxSide: Int): ImageBitmap? = try {
-        if (uri == null) null else decodeSampled(maxSide) { contentResolver.openInputStream(uri) }?.asImageBitmap()
+        if (uri == null) {
+            null
+        } else {
+            val bmp = decodeSampled(maxSide) { contentResolver.openInputStream(uri) }
+            if (bmp == null) null else applyOrientation(bmp, exifOrientation(uri)).asImageBitmap()
+        }
     } catch (_: Exception) { null }
+
+    /** Orientação gravada pela câmera no arquivo (EXIF). Sem aplicá-la, fotos tiradas em pé aparecem deitadas. */
+    private fun exifOrientation(uri: Uri): Int = try {
+        contentResolver.openInputStream(uri)?.use {
+            android.media.ExifInterface(it).getAttributeInt(
+                android.media.ExifInterface.TAG_ORIENTATION,
+                android.media.ExifInterface.ORIENTATION_NORMAL
+            )
+        } ?: android.media.ExifInterface.ORIENTATION_NORMAL
+    } catch (_: Exception) { android.media.ExifInterface.ORIENTATION_NORMAL }
+
+    private fun applyOrientation(src: Bitmap, orientation: Int): Bitmap {
+        val m = android.graphics.Matrix()
+        when (orientation) {
+            android.media.ExifInterface.ORIENTATION_ROTATE_90 -> m.postRotate(90f)
+            android.media.ExifInterface.ORIENTATION_ROTATE_180 -> m.postRotate(180f)
+            android.media.ExifInterface.ORIENTATION_ROTATE_270 -> m.postRotate(270f)
+            android.media.ExifInterface.ORIENTATION_FLIP_HORIZONTAL -> m.postScale(-1f, 1f)
+            android.media.ExifInterface.ORIENTATION_FLIP_VERTICAL -> m.postScale(1f, -1f)
+            android.media.ExifInterface.ORIENTATION_TRANSPOSE -> { m.postRotate(90f); m.postScale(-1f, 1f) }
+            android.media.ExifInterface.ORIENTATION_TRANSVERSE -> { m.postRotate(270f); m.postScale(-1f, 1f) }
+            else -> return src
+        }
+        return Bitmap.createBitmap(src, 0, 0, src.width, src.height, m, true)
+    }
 
     private fun appIcon(pkg: String): ImageBitmap? = runCatching {
         val drawable = packageManager.getApplicationIcon(pkg)
@@ -294,6 +328,7 @@ class MainActivity : ComponentActivity() {
 
         // Rascunho da página "Personalizar jogo"
         var editEntry by remember { mutableStateOf<Entry?>(null) }
+        var keyboard by remember { mutableStateOf<KeyboardRequest?>(null) }
         var draftTitle by remember { mutableStateOf("") }
         var draftGroup by remember { mutableStateOf("") }
         var draftFavorite by remember { mutableStateOf(false) }
@@ -388,6 +423,8 @@ class MainActivity : ComponentActivity() {
         BackHandler(enabled = screen != Screen.Home) {
             screen = if (screen == Screen.Covers) Screen.Edit else Screen.Home
         }
+        // Declarado depois: tem prioridade. Voltar com o teclado aberto só fecha o teclado.
+        BackHandler(enabled = keyboard != null) { keyboard = null }
 
         val entries = remember(games, apps, selectedApps) {
             games.map { Entry(it.uri.toString(), it.name, nup = it) } +
@@ -414,13 +451,17 @@ class MainActivity : ComponentActivity() {
         }
 
         // Botão B do controle = voltar
+        CompositionLocalProvider(LocalSwitchKeyboard provides { req: KeyboardRequest -> keyboard = req }) {
         Box(Modifier.fillMaxSize().onKeyEvent { ev ->
             if (ev.key == Key.ButtonB) {
                 if (ev.type == KeyEventType.KeyUp) onBackPressedDispatcher.onBackPressed()
                 true
             } else false
         }) {
-            when (screen) {
+            val activeKeyboard = keyboard
+            // O teclado substitui a página inteira (nada de Dialog nem teclado do Android).
+            if (activeKeyboard != null) SwitchKeyboard(activeKeyboard, onClose = { keyboard = null })
+            else when (screen) {
                 Screen.Home -> HomeScreen(
                     entries = visibleEntries,
                     totalEntries = entries.size,
@@ -555,6 +596,7 @@ class MainActivity : ComponentActivity() {
                     )
                 }
             }
+        }
         }
     }
 

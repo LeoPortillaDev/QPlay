@@ -16,12 +16,19 @@ Leia ISTO antes de mexer. Não reescreva o projeto: altere só o que foi pedido.
 5. **Chaves do SharedPreferences "qplay_library" não mudam** (usuário já tem dados salvos):
    `rom_folder_uri`, `selected_apps`, `display_name`, `profile_avatar_uri`, `favorites`, `accent_color`,
    `edit_name_<key>`, `group_<key>`, `cover_<key>`. `<key>` = uri do .nup ou nome do pacote.
-6. Não remover recursos existentes: avatar/nome, favoritos, grupos, filtros, capas, busca de capas, Peanuts, sons.
+6. **Nada de `TextField`/`OutlinedTextField` (abrem o teclado do Android).** Todo texto digitado usa `SwitchTextField(...)`
+   (ui/SwitchKeyboard.kt), que abre o teclado do QPlay em tela cheia (`SwitchKeyboard`), igual ao do Switch.
+   A raiz (`QPlayApp`) fornece o teclado via `LocalSwitchKeyboard`; as páginas só chamam `SwitchTextField`.
+7. **Letras dos botões (A/B/X/Y/L/R/+) sempre com `ButtonBadge`** — ele centraliza a letra pelo contorno do glifo.
+   Não use `Text` dentro de um círculo pequeno (a letra desce).
+8. **Fotos de galeria passam por `decodeUri`** (MainActivity), que aplica a orientação EXIF. Não decodifique direto com BitmapFactory.
+9. Não remover recursos existentes: avatar/nome, favoritos, grupos, filtros, capas, busca de capas, Peanuts, sons.
 
 ## Mapa dos arquivos (app/src/main/java/com/qplay/launcher/)
 - `MainActivity.kt` — estado, navegação, tela inicial (HomeScreen), GameTile, imersivo (tela cheia), integração Peanuts.
 - `Pages.kt` — páginas: SettingsPage (Configurações), EditPage (Personalizar jogo), CoversPage (Buscar capa), AppsPage.
 - `CoverCatalog.kt` — catálogo público de ícones do Switch: busca por nome (todas as palavras, sem duplicados), cache em memória/disco.
+- `ui/SwitchKeyboard.kt` — teclado próprio (SwitchKeyboard), SwitchTextField, KeyboardRequest/LocalSwitchKeyboard.
 - `ui/SwitchComponents.kt` — componentes: SwitchPage, SwitchButton, SwitchListItem, SwitchTileFrame, SwitchCircleButton,
   SwitchStatusBar, SwitchAvatar, SwitchBottomBar, campos de texto.
 - `ui/Theme.kt` — `SwitchColors` e `QPlayTheme`.

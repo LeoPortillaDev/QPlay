@@ -65,6 +65,8 @@ import androidx.compose.ui.geometry.Size
 import androidx.compose.ui.graphics.Color
 import androidx.compose.ui.graphics.ImageBitmap
 import androidx.compose.ui.graphics.drawscope.Stroke
+import androidx.compose.ui.graphics.nativeCanvas
+import androidx.compose.ui.graphics.toArgb
 import androidx.compose.ui.graphics.vector.ImageVector
 import androidx.compose.ui.input.key.Key
 import androidx.compose.ui.input.key.KeyEventType
@@ -347,7 +349,14 @@ fun SwitchCircleButton(
 data class ButtonHint(val key: String, val label: String)
 
 @Composable
-fun SwitchBottomBar(unit: Dp, hints: List<ButtonHint>, modifier: Modifier = Modifier) {
+fun SwitchBottomBar(
+    unit: Dp,
+    hints: List<ButtonHint>,
+    modifier: Modifier = Modifier,
+    contentColor: Color = SwitchColors.Ink,
+    badgeBg: Color = SwitchColors.Ink,
+    badgeFg: Color = Color(0xFFEBEBEB)
+) {
     Row(modifier, verticalAlignment = Alignment.CenterVertically) {
         // Indicador do controle (ícone + 4 luzes de jogador)
         Column(verticalArrangement = Arrangement.spacedBy(unit * 0.006f)) {
@@ -360,19 +369,37 @@ fun SwitchBottomBar(unit: Dp, hints: List<ButtonHint>, modifier: Modifier = Modi
             }
         }
         Spacer(Modifier.width(unit * 0.012f))
-        Icon(Icons.Rounded.SportsEsports, "Controle", tint = SwitchColors.Ink, modifier = Modifier.size(unit * 0.075f))
+        Icon(Icons.Rounded.SportsEsports, "Controle", tint = contentColor, modifier = Modifier.size(unit * 0.075f))
         Spacer(Modifier.weight(1f))
         hints.forEachIndexed { index, hint ->
             if (index > 0) Spacer(Modifier.width(unit * 0.05f))
-            Box(
-                Modifier.size(unit * 0.045f).clip(CircleShape).background(SwitchColors.Ink),
-                contentAlignment = Alignment.Center
-            ) {
-                Text(hint.key, color = Color(0xFFEBEBEB), fontSize = (unit.value * 0.028f).sp, fontWeight = FontWeight.Bold)
-            }
+            ButtonBadge(hint.key, unit * 0.045f, badgeBg, badgeFg)
             Spacer(Modifier.width(unit * 0.015f))
-            Text(hint.label, color = SwitchColors.Ink, fontSize = (unit.value * 0.045f).sp, fontWeight = FontWeight.Medium)
+            Text(hint.label, color = contentColor, fontSize = (unit.value * 0.045f).sp, fontWeight = FontWeight.Medium)
         }
+    }
+}
+
+/**
+ * Selo redondo com a letra do botão (A, B, X, Y, L, R, +). A letra é desenhada medindo o contorno real do glifo,
+ * então fica exatamente no centro do círculo (um Text comum deixa a letra mais baixa por causa da altura de linha).
+ */
+@Composable
+fun ButtonBadge(letter: String, diameter: Dp, bg: Color, fg: Color, modifier: Modifier = Modifier) {
+    val paint = remember {
+        android.graphics.Paint().apply {
+            isAntiAlias = true
+            textAlign = android.graphics.Paint.Align.CENTER
+            typeface = android.graphics.Typeface.DEFAULT_BOLD
+        }
+    }
+    val bounds = remember { android.graphics.Rect() }
+    Canvas(modifier.size(diameter)) {
+        drawCircle(bg)
+        paint.color = fg.toArgb()
+        paint.textSize = this.size.minDimension * (if (letter.length > 1) 0.42f else 0.58f)
+        paint.getTextBounds(letter, 0, letter.length, bounds)
+        drawContext.canvas.nativeCanvas.drawText(letter, center.x, center.y - bounds.exactCenterY(), paint)
     }
 }
 
@@ -484,7 +511,7 @@ fun SwitchListItem(label: String, selected: Boolean, onClick: () -> Unit, modifi
             .clickable(interactionSource = remember { MutableInteractionSource() }, indication = null, onClick = onClick)
             .background(if (selected || focused) Color.White else Color.Transparent, shape)
             .then(if (focused) Modifier.border(3.dp, SwitchColors.Cyan, shape) else Modifier)
-            .padding(horizontal = 14.dp, vertical = 12.dp),
+            .padding(horizontal = 14.dp, vertical = 8.dp),
         verticalAlignment = Alignment.CenterVertically
     ) {
         Box(Modifier.width(4.dp).height(22.dp).background(if (selected) SwitchColors.Teal else Color.Transparent))

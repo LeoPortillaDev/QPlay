@@ -27,8 +27,6 @@ import androidx.compose.foundation.lazy.grid.items
 import androidx.compose.foundation.rememberScrollState
 import androidx.compose.foundation.shape.CircleShape
 import androidx.compose.foundation.shape.RoundedCornerShape
-import androidx.compose.foundation.text.KeyboardActions
-import androidx.compose.foundation.text.KeyboardOptions
 import androidx.compose.foundation.verticalScroll
 import androidx.compose.material.icons.Icons
 import androidx.compose.material.icons.rounded.Apps
@@ -44,7 +42,6 @@ import androidx.compose.material3.Checkbox
 import androidx.compose.material3.CheckboxDefaults
 import androidx.compose.material3.CircularProgressIndicator
 import androidx.compose.material3.Icon
-import androidx.compose.material3.OutlinedTextField
 import androidx.compose.material3.Text
 import androidx.compose.runtime.Composable
 import androidx.compose.runtime.LaunchedEffect
@@ -68,7 +65,6 @@ import androidx.compose.ui.graphics.graphicsLayer
 import androidx.compose.ui.layout.ContentScale
 import androidx.compose.ui.platform.LocalFocusManager
 import androidx.compose.ui.text.font.FontWeight
-import androidx.compose.ui.text.input.ImeAction
 import androidx.compose.ui.text.style.TextOverflow
 import androidx.compose.ui.unit.dp
 import androidx.compose.ui.unit.sp
@@ -78,9 +74,9 @@ import com.qplay.launcher.ui.SwitchButton
 import com.qplay.launcher.ui.SwitchColors
 import com.qplay.launcher.ui.SwitchListItem
 import com.qplay.launcher.ui.SwitchPage
+import com.qplay.launcher.ui.SwitchTextField
 import com.qplay.launcher.ui.SwitchTileFrame
 import com.qplay.launcher.ui.gamepadA
-import com.qplay.launcher.ui.switchTextFieldColors
 import kotlinx.coroutines.Dispatchers
 import kotlinx.coroutines.delay
 import kotlinx.coroutines.withContext
@@ -155,10 +151,10 @@ fun SettingsPage(
                                 if (avatar != null) SwitchButton("Remover foto", onRemoveAvatar, icon = Icons.Rounded.Delete)
                             }
                         }
-                        OutlinedTextField(
-                            value = displayName, onValueChange = onDisplayName,
-                            label = { Text("Nome do perfil") }, singleLine = true,
-                            colors = switchTextFieldColors(), modifier = Modifier.fillMaxWidth(0.85f)
+                        SwitchTextField(
+                            label = "Nome do perfil", value = displayName, onValueChange = onDisplayName,
+                            title = "Insira um apelido para este usuário.", subtitle = "Isto pode ser alterado a qualquer momento.",
+                            maxLength = 16, modifier = Modifier.fillMaxWidth(0.85f)
                         )
                     }
                     "Aparência" -> {
@@ -262,13 +258,15 @@ fun EditPage(
                 Modifier.weight(1f).fillMaxHeight().verticalScroll(rememberScrollState()),
                 verticalArrangement = Arrangement.spacedBy(u * 0.022f)
             ) {
-                OutlinedTextField(
-                    value = draftTitle, onValueChange = onDraftTitle, label = { Text("Nome do jogo") },
-                    singleLine = true, colors = switchTextFieldColors(), modifier = Modifier.fillMaxWidth()
+                SwitchTextField(
+                    label = "Nome do jogo", value = draftTitle, onValueChange = onDraftTitle,
+                    title = "Insira o nome do jogo.", subtitle = "Ele aparece embaixo da capa na tela inicial.",
+                    maxLength = 60, modifier = Modifier.fillMaxWidth()
                 )
-                OutlinedTextField(
-                    value = draftGroup, onValueChange = onDraftGroup, label = { Text("Grupo / coleção") },
-                    singleLine = true, colors = switchTextFieldColors(), modifier = Modifier.fillMaxWidth()
+                SwitchTextField(
+                    label = "Grupo / coleção", value = draftGroup, onValueChange = onDraftGroup,
+                    title = "Insira o nome do grupo.", subtitle = "Use o mesmo nome em vários jogos para agrupá-los.",
+                    maxLength = 30, modifier = Modifier.fillMaxWidth()
                 )
                 SwitchButton(
                     if (favorite) "Favorito" else "Adicionar aos favoritos",
@@ -311,14 +309,10 @@ fun CoversPage(
     ) { u ->
         Column(Modifier.fillMaxSize(), verticalArrangement = Arrangement.spacedBy(u * 0.015f)) {
             Row(Modifier.fillMaxWidth(), horizontalArrangement = Arrangement.spacedBy(u * 0.02f), verticalAlignment = Alignment.CenterVertically) {
-                OutlinedTextField(
-                    value = query, onValueChange = onQuery,
-                    label = { Text("Nome do jogo (em inglês dá mais resultados)") },
-                    singleLine = true,
-                    keyboardOptions = KeyboardOptions(imeAction = ImeAction.Search),
-                    keyboardActions = KeyboardActions(onSearch = { search() }),
-                    colors = switchTextFieldColors(),
-                    modifier = Modifier.weight(1f)
+                SwitchTextField(
+                    label = "Nome do jogo (em inglês dá mais resultados)", value = query, onValueChange = onQuery,
+                    title = "Buscar capa", subtitle = "Digite o nome do jogo. Em inglês dá mais resultados.",
+                    maxLength = 60, onSubmitted = onSearch, modifier = Modifier.weight(1f)
                 )
                 SwitchButton(if (busy) "Buscando…" else "Buscar", { search() }, icon = Icons.Rounded.Search, primary = true, enabled = query.isNotBlank() && !busy)
             }
