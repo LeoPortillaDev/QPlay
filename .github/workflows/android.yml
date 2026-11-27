@@ -2,10 +2,10 @@ name: QPlay Android APK
 
 on:
   push:
-    branches: [main]
+    branches: [main, qplay-hybrid-experimental]
   workflow_dispatch:
 
-# Evita acumular execuções: uma nova compilação da main cancela a anterior.
+# Evita acumular execuções da mesma branch.
 concurrency:
   group: qplay-android-${{ github.ref }}
   cancel-in-progress: true
