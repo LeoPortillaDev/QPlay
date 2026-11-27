@@ -122,7 +122,9 @@ fun SettingsPage(
     uiSoundsEnabled: Boolean,
     onUiSoundsEnabled: (Boolean) -> Unit,
     uiSoundVolume: Float,
-    onUiSoundVolume: (Float) -> Unit
+    onUiSoundVolume: (Float) -> Unit,
+    onAccessibilitySettings: () -> Unit,
+    accessibilityEnabled: Boolean
 ) {
     SwitchPage(title = "Configurações", subtitle = "Switch $version", hints = BackOk) { u ->
         val first = remember { FocusRequester() }
@@ -202,10 +204,21 @@ fun SettingsPage(
                         )
                         SwitchButton("Limpar cache do catálogo", onClearCatalog, icon = Icons.Rounded.Delete)
                     }
-                    "Controles" -> Text(
-                        "Direcional navega, A abre e B volta. Mapeamento de botões e atalhos serão configurados aqui.",
-                        color = SwitchColors.Muted, fontSize = body
-                    )
+                    "Controles" -> {
+                        Text(
+                            "Menu rápido durante os jogos. Ao ativar a acessibilidade, o QPlay poderá reconhecer o botão HOME sobre os emuladores compatíveis e impedir que ele saia para a tela inicial do Android.",
+                            color = SwitchColors.Muted, fontSize = body
+                        )
+                        SwitchButton(
+                            if (accessibilityEnabled) "Serviço do QPlay ativado" else "Ativar serviço do QPlay",
+                            onAccessibilitySettings,
+                            primary = accessibilityEnabled
+                        )
+                        Text(
+                            "Nas configurações de acessibilidade, encontre Menu de jogo do QPlay e ative. Não é necessário instalar outro aplicativo.",
+                            color = SwitchColors.Muted, fontSize = (u.value * 0.026f).sp
+                        )
+                    }
                     else -> {
                         Text(peanutsStatus, color = SwitchColors.Ink, fontSize = body)
                         Text("Efeitos sonoros da interface", color = SwitchColors.Muted, fontSize = body)
