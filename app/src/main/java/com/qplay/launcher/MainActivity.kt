@@ -668,7 +668,7 @@ class MainActivity : ComponentActivity() {
             val emptyCount = (MIN_SLOTS - entries.size).coerceAtLeast(2)
             LazyRow(
                 modifier = Modifier.align(Alignment.TopStart).offset(y = u * (TILE_TOP - 0.03f)).fillMaxWidth().height(tile + u * 0.06f),
-                contentPadding = PaddingValues(start = u * TILE_START, end = u * 0.1f, top = u * 0.03f, bottom = u * 0.03f),
+                contentPadding = PaddingValues(start = u * TILE_START, end = u * TILE_START, top = u * 0.03f, bottom = u * 0.03f),
                 horizontalArrangement = Arrangement.spacedBy(u * TILE_GAP),
                 verticalAlignment = Alignment.CenterVertically
             ) {
@@ -705,7 +705,15 @@ class MainActivity : ComponentActivity() {
                     fontSize = labelSize.sp,
                     maxLines = 1,
                     overflow = TextOverflow.Ellipsis,
-                    modifier = Modifier.align(Alignment.TopStart).padding(start = u * TILE_START, end = u * 0.1f, top = u * CAPTION_TOP)
+                    textAlign = if (emptyState) androidx.compose.ui.text.style.TextAlign.Center else androidx.compose.ui.text.style.TextAlign.Start,
+                    modifier = if (emptyState) {
+                        Modifier.align(Alignment.TopCenter)
+                            .padding(start = u * TILE_START, end = u * TILE_START, top = u * 0.185f)
+                            .fillMaxWidth()
+                    } else {
+                        Modifier.align(Alignment.TopStart)
+                            .padding(start = u * TILE_START, end = u * TILE_START, top = u * CAPTION_TOP)
+                    }
                 )
             }
 
