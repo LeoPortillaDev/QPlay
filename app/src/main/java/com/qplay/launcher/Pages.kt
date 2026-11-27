@@ -508,7 +508,7 @@ private fun AppRow(app: InstalledApp, selected: Boolean, onToggle: () -> Unit, o
     val borderColor = when {
         focused -> SwitchColors.Cyan
         selected -> SwitchColors.Teal
-        else -> Color.White
+        else -> SwitchColors.Border
     }
     Row(
         modifier
@@ -521,7 +521,7 @@ private fun AppRow(app: InstalledApp, selected: Boolean, onToggle: () -> Unit, o
                 onClick = onToggle,
                 onLongClick = onLaunch
             )
-            .background(Color.White, shape)
+            .background(SwitchColors.Surface, shape)
             .border(if (focused) 3.dp else 2.dp, borderColor, shape)
             .padding(14.dp),
         verticalAlignment = Alignment.CenterVertically
