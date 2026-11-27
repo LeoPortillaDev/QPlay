@@ -44,7 +44,6 @@ import androidx.compose.ui.input.key.Key
 import androidx.compose.ui.input.key.KeyEventType
 import androidx.compose.ui.input.key.key
 import androidx.compose.ui.input.key.onKeyEvent
-import androidx.compose.ui.input.key.nativeKeyEvent
 import androidx.compose.ui.input.key.type
 import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.text.style.TextOverflow
@@ -171,23 +170,17 @@ fun SwitchKeyboard(request: KeyboardRequest, onClose: () -> Unit) {
             .windowInsetsPadding(WindowInsets.displayCutout)
             .onKeyEvent { ev ->
                 val k = ev.key
-                // Compose não expõe ButtonThumbL como Key; lemos o código Android nativo.
-                val leftStickClick = ev.nativeKeyEvent.keyCode == android.view.KeyEvent.KEYCODE_BUTTON_THUMBL
                 val mapped = k == Key.ButtonB || k == Key.ButtonY || k == Key.ButtonX || k == Key.ButtonStart ||
-                    k == Key.ButtonL1 || k == Key.ButtonR1 || leftStickClick
+                    k == Key.ButtonL1 || k == Key.ButtonR1
                 if (mapped && ev.type == KeyEventType.KeyUp) {
-                    if (leftStickClick) {
-                        shift = !shift
-                    } else {
-                        when (k) {
-                            Key.ButtonB -> backspace()
-                            Key.ButtonY -> insert(" ")
-                            Key.ButtonX -> onClose()
-                            Key.ButtonStart -> finish()
-                            Key.ButtonL1 -> cursor = (cursor - 1).coerceAtLeast(0)
-                            Key.ButtonR1 -> cursor = (cursor + 1).coerceAtMost(text.length)
-                            else -> Unit
-                        }
+                    when (k) {
+                        Key.ButtonB -> backspace()
+                        Key.ButtonY -> insert(" ")
+                        Key.ButtonX -> onClose()
+                        Key.ButtonStart -> finish()
+                        Key.ButtonL1 -> cursor = (cursor - 1).coerceAtLeast(0)
+                        Key.ButtonR1 -> cursor = (cursor + 1).coerceAtMost(text.length)
+                        else -> Unit
                     }
                 }
                 mapped
