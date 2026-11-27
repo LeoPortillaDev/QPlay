@@ -124,7 +124,7 @@ private const val TILE_TOP = 0.270f
 private const val TILE_START = 0.149f
 private const val TILE_GAP = 0.019f
 private const val CAPTION_TOP = 0.648f
-private const val DOCK_TOP = 0.685f
+private const val DOCK_TOP = 0.665f
 private const val DOCK_DIAMETER = 0.119f
 private const val MIN_SLOTS = 8
 
@@ -144,6 +144,7 @@ class MainActivity : ComponentActivity() {
         val prefs = getSharedPreferences("qplay_library", MODE_PRIVATE)
         val savedAccent = runCatching { prefs.getLong("accent_color", 0L) }.getOrDefault(0L)
         if (savedAccent != 0L) SwitchColors.setAccent(Color(savedAccent.toULong()))
+        SwitchColors.setDarkMode(prefs.getBoolean("dark_mode", false))
         setContent { QPlayTheme { QPlayApp() } }
     }
 
@@ -510,6 +511,11 @@ class MainActivity : ComponentActivity() {
                         SwitchColors.setAccent(c)
                         if (c == null) prefs.edit().remove("accent_color").apply()
                         else prefs.edit().putLong("accent_color", c.value.toLong()).apply()
+                    },
+                    darkMode = SwitchColors.isDark,
+                    onDarkMode = { enabled ->
+                        SwitchColors.setDarkMode(enabled)
+                        prefs.edit().putBoolean("dark_mode", enabled).apply()
                     },
                     folderLabel = folderUri?.lastPathSegment?.substringAfterLast(':') ?: "não definida",
                     onPickFolder = pickFolder,
