@@ -643,7 +643,16 @@ class MainActivity : ComponentActivity() {
                     onUiSoundVolume = { volume ->
                         uiSoundVolume = volume
                         prefs.edit().putInt("ui_sound_volume", volume.toInt()).apply()
-                    }
+                    },
+                    onAccessibilitySettings = {
+                        runCatching {
+                            startActivity(Intent(android.provider.Settings.ACTION_ACCESSIBILITY_SETTINGS))
+                        }.onFailure { toast("Não foi possível abrir as configurações de acessibilidade.") }
+                    },
+                    accessibilityEnabled = android.provider.Settings.Secure.getString(
+                        contentResolver,
+                        android.provider.Settings.Secure.ENABLED_ACCESSIBILITY_SERVICES
+                    )?.contains(GameMenuAccessibilityService::class.java.name, ignoreCase = true) == true
                 )
 
                 Screen.Edit -> {
