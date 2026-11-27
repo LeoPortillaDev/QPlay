@@ -87,9 +87,11 @@ fun SwitchTextField(
     onSubmitted: (() -> Unit)? = null
 ) {
     val openKeyboard = LocalSwitchKeyboard.current
+    val uiSound = LocalUiSound.current
     var focused by remember { mutableStateOf(false) }
     val shape = RoundedCornerShape(6.dp)
     val open: () -> Unit = {
+        uiSound(true)
         openKeyboard(KeyboardRequest(title, subtitle, value, maxLength) { result ->
             onValueChange(result)
             onSubmitted?.invoke()
@@ -97,7 +99,7 @@ fun SwitchTextField(
     }
     Column(
         modifier
-            .onFocusChanged { focused = it.isFocused }
+            .onFocusChanged { focused = it.isFocused; if (it.isFocused) uiSound(false) }
             .gamepadA(open)
             .clickable(interactionSource = remember { MutableInteractionSource() }, indication = null, onClick = open)
             .background(SwitchColors.Surface, shape)
@@ -276,13 +278,15 @@ private fun KbKey(
     focusRequester: FocusRequester? = null
 ) {
     var focused by remember { mutableStateOf(false) }
+    val uiSound = LocalUiSound.current
+    val activate = { uiSound(true); onClick() }
     val shape = RoundedCornerShape(2.dp)
     val base = if (focusRequester != null) modifier.focusRequester(focusRequester) else modifier
     Box(
         base
-            .onFocusChanged { focused = it.isFocused }
-            .gamepadA(onClick)
-            .clickable(interactionSource = remember { MutableInteractionSource() }, indication = null, onClick = onClick)
+            .onFocusChanged { focused = it.isFocused; if (it.isFocused) uiSound(false) }
+            .gamepadA(activate)
+            .clickable(interactionSource = remember { MutableInteractionSource() }, indication = null, onClick = activate)
             .background(if (focused) Color(0xFF2E3A4B) else if (dim) Color(0xFF555555) else Color(0xFF5E5E5E), shape)
             .then(if (focused) Modifier.border(3.dp, SwitchColors.Cyan, shape) else Modifier),
         contentAlignment = Alignment.Center
