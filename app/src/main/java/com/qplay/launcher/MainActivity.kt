@@ -6,6 +6,8 @@ import android.content.SharedPreferences
 import android.content.pm.PackageManager
 import android.graphics.Bitmap
 import android.graphics.BitmapFactory
+import android.media.AudioManager
+import android.media.ToneGenerator
 import android.net.Uri
 import android.os.Build
 import android.os.Bundle
@@ -169,6 +171,12 @@ class MainActivity : ComponentActivity() {
         if (hasFocus) applyImmersive()
     }
 
+    override fun onDestroy() {
+        uiToneGenerator?.release()
+        uiToneGenerator = null
+        super.onDestroy()
+    }
+
     /* ------------------------------------------------------------------ */
     /* Integração com apps / Peanuts                                        */
     /* ------------------------------------------------------------------ */
@@ -192,7 +200,21 @@ class MainActivity : ComponentActivity() {
         }?.packageName
     }
 
-    private fun playSoundEffect(effect: Int) { window.decorView.playSoundEffect(effect) }
+    private var uiToneGenerator: ToneGenerator? = null
+    private var uiToneVolume: Int = -1
+
+    private fun playUiTone(tone: Int) {
+        val prefs = getSharedPreferences("qplay_library", MODE_PRIVATE)
+        if (!prefs.getBoolean("ui_sounds_enabled", true)) return
+        val volume = prefs.getInt("ui_sound_volume", 35).coerceIn(0, 100)
+        if (volume == 0) return
+        if (uiToneGenerator == null || uiToneVolume != volume) {
+            uiToneGenerator?.release()
+            uiToneGenerator = ToneGenerator(AudioManager.STREAM_MUSIC, volume)
+            uiToneVolume = volume
+        }
+        uiToneGenerator?.startTone(tone, 65)
+    }
 
     private fun toast(text: String, long: Boolean = false) {
         android.widget.Toast.makeText(this, text, if (long) android.widget.Toast.LENGTH_LONG else android.widget.Toast.LENGTH_SHORT).show()
@@ -329,6 +351,8 @@ class MainActivity : ComponentActivity() {
         var coverMap by remember { mutableStateOf(stringMap(prefs, "cover_")) }
         var libraryFilter by remember { mutableStateOf("Todos") }
         var settingsCategory by remember { mutableStateOf("Perfil") }
+        var uiSoundsEnabled by remember { mutableStateOf(prefs.getBoolean("ui_sounds_enabled", true)) }
+        var uiSoundVolume by remember { mutableStateOf(prefs.getInt("ui_sound_volume", 35).toFloat()) }
         var avatarUri by remember { mutableStateOf(prefs.getString("profile_avatar_uri", null)?.let(Uri::parse)) }
 
         // Rascunho da página "Personalizar jogo"
@@ -529,7 +553,17 @@ class MainActivity : ComponentActivity() {
                     onFilter = { libraryFilter = it },
                     onClearCatalog = { CoverCatalog.clearCache(applicationContext); toast("Cache do catálogo limpo") },
                     peanutsStatus = if (peanuts != null) "Peanuts: conectado ($peanuts)" else "Peanuts: não detectado",
-                    version = runCatching { packageManager.getPackageInfo(packageName, 0).versionName }.getOrNull().orEmpty()
+                    version = runCatching { packageManager.getPackageInfo(packageName, 0).versionName }.getOrNull().orEmpty(),
+                    uiSoundsEnabled = uiSoundsEnabled,
+                    onUiSoundsEnabled = { enabled ->
+                        uiSoundsEnabled = enabled
+                        prefs.edit().putBoolean("ui_sounds_enabled", enabled).apply()
+                    },
+                    uiSoundVolume = uiSoundVolume,
+                    onUiSoundVolume = { volume ->
+                        uiSoundVolume = volume
+                        prefs.edit().putInt("ui_sound_volume", volume.toInt()).apply()
+                    }
                 )
 
                 Screen.Edit -> {
@@ -641,10 +675,13 @@ class MainActivity : ComponentActivity() {
         val gamesListState = rememberLazyListState()
         var dockFocus by remember { mutableIntStateOf(-1) }
         val firstFocus = remember { FocusRequester() }
+        val entryKeys = remember(entries) { entries.map { it.key } }
 
-        LaunchedEffect(scanning) {
+        LaunchedEffect(scanning, entryKeys, filter) {
             if (!scanning) {
-                delay(60)
+                // Sempre retorna ao início quando a biblioteca recebe jogos ou o filtro muda.
+                gamesListState.scrollToItem(0)
+                delay(100)
                 runCatching { firstFocus.requestFocus() }
             }
         }
@@ -698,7 +735,7 @@ class MainActivity : ComponentActivity() {
                         size = tile,
                         modifier = if (i == 0) Modifier.focusRequester(firstFocus) else Modifier,
                         onClick = { onOpen(e) },
-                        onLongClick = { onEdit(e) },
+                        onLongClick = { playUiTone(ToneGenerator.TONE_PROP_ACK); onEdit(e) },
                         onFocused = { focusedName = it; focusedIndex = i }
                     )
                 }
@@ -758,7 +795,7 @@ class MainActivity : ComponentActivity() {
             fun dockFocusChanged(index: Int): (Boolean) -> Unit = { f ->
                 if (f) {
                     dockFocus = index
-                    playSoundEffect(SoundEffectConstants.NAVIGATION_RIGHT)
+                    playUiTone(ToneGenerator.TONE_PROP_BEEP2)
                 } else if (dockFocus == index) dockFocus = -1
             }
             Row(Modifier.align(Alignment.TopCenter).padding(top = u * DOCK_TOP)) {
@@ -827,7 +864,7 @@ class MainActivity : ComponentActivity() {
                         true
                     } else false
                 }
-                .gamepadA { playSoundEffect(SoundEffectConstants.CLICK); onClick() }
+                .gamepadA { playUiTone(ToneGenerator.TONE_PROP_ACK); onClick() }
                 .combinedClickable(
                     interactionSource = remember { MutableInteractionSource() },
                     indication = null,
