@@ -1,24 +1,26 @@
 package com.qplay.launcher
 
 import android.accessibilityservice.AccessibilityService
+import android.app.ActivityManager
 import android.content.Intent
-import android.graphics.Color
 import android.graphics.Typeface
 import android.graphics.drawable.GradientDrawable
 import android.os.Handler
 import android.os.Looper
 import android.view.Gravity
+import android.view.InputDevice
 import android.view.KeyEvent
+import android.view.MotionEvent
 import android.view.View
 import android.view.WindowManager
+import android.view.accessibility.AccessibilityEvent
 import android.widget.FrameLayout
 import android.widget.LinearLayout
 import android.widget.TextView
-import android.view.accessibility.AccessibilityEvent
 
 /**
- * Captura o HOME somente enquanto um emulador conhecido está em primeiro plano.
- * O evento é consumido e um menu de acessibilidade é desenhado sobre o jogo.
+ * Captura o botão de menu somente enquanto um emulador conhecido está em primeiro plano.
+ * O menu é desenhado sobre o jogo e aceita teclas e eixos de controles compatíveis.
  */
 class GameMenuAccessibilityService : AccessibilityService() {
     private val handler = Handler(Looper.getMainLooper())
@@ -26,8 +28,11 @@ class GameMenuAccessibilityService : AccessibilityService() {
     private var overlay: View? = null
     private var windowManager: WindowManager? = null
     private var selected = 0
+    private var lastAxisDir = 0
     private val options = listOf("Voltar ao jogo", "Encerrar e voltar à biblioteca")
     private var optionViews: List<TextView> = emptyList()
+
+    private fun dp(value: Int): Int = (value * resources.displayMetrics.density).toInt()
 
     override fun onServiceConnected() {
         super.onServiceConnected()
@@ -36,18 +41,24 @@ class GameMenuAccessibilityService : AccessibilityService() {
 
     override fun onAccessibilityEvent(event: AccessibilityEvent?) {
         val pkg = event?.packageName?.toString() ?: return
-        // Não perca a identificação do emulador quando o Android/Samsung emitir
-        // eventos de janelas do sistema por cima do jogo.
-        if (isSupportedEmulator(pkg)) foregroundPackage = pkg
+        if (event.eventType != AccessibilityEvent.TYPE_WINDOW_STATE_CHANGED) return
+
+        when {
+            isSupportedEmulator(pkg) -> foregroundPackage = pkg
+            isSystemPackage(pkg) -> Unit
+            pkg == packageName -> {
+                if (event.className?.toString()?.endsWith("MainActivity") == true) {
+                    foregroundPackage = null
+                }
+            }
+            else -> foregroundPackage = null
+        }
     }
 
     override fun onInterrupt() = Unit
 
     override fun onKeyEvent(event: KeyEvent): Boolean {
         val key = event.keyCode
-        // Controles Bluetooth podem mapear o botão HOME para BUTTON_MODE ou MENU,
-        // em vez de KEYCODE_HOME. Capturamos as três variantes enquanto o emulador
-        // conhecido continua sendo o app em primeiro plano.
         val isHome = key == KeyEvent.KEYCODE_HOME ||
             key == KeyEvent.KEYCODE_BUTTON_MODE ||
             key == KeyEvent.KEYCODE_MENU
@@ -55,73 +66,112 @@ class GameMenuAccessibilityService : AccessibilityService() {
             if (event.action == KeyEvent.ACTION_DOWN && event.repeatCount == 0) showMenu()
             return true
         }
-
-        if (overlay != null) {
-            if (event.action != KeyEvent.ACTION_DOWN) return true
-            when (key) {
-                KeyEvent.KEYCODE_DPAD_UP, KeyEvent.KEYCODE_DPAD_LEFT, KeyEvent.KEYCODE_BUTTON_L1 -> {
-                    selected = (selected - 1).coerceAtLeast(0)
-                    optionViews.getOrNull(selected)?.requestFocus()
-                    refreshSelection()
-                    return true
-                }
-                KeyEvent.KEYCODE_DPAD_DOWN, KeyEvent.KEYCODE_DPAD_RIGHT, KeyEvent.KEYCODE_BUTTON_R1 -> {
-                    selected = (selected + 1).coerceAtMost(options.lastIndex)
-                    optionViews.getOrNull(selected)?.requestFocus()
-                    refreshSelection()
-                    return true
-                }
-                KeyEvent.KEYCODE_BUTTON_A, KeyEvent.KEYCODE_ENTER, KeyEvent.KEYCODE_DPAD_CENTER -> {
-                    activateSelection(); return true
-                }
-                KeyEvent.KEYCODE_BUTTON_B, KeyEvent.KEYCODE_BACK, KeyEvent.KEYCODE_ESCAPE -> {
-                    hideMenu(); return true
-                }
-            }
-        }
+        if (overlay != null) return handleOverlayKey(key, event.action)
         return false
+    }
+
+    private fun handleOverlayKey(key: Int, action: Int): Boolean {
+        val handled = when (key) {
+            KeyEvent.KEYCODE_DPAD_UP, KeyEvent.KEYCODE_DPAD_LEFT, KeyEvent.KEYCODE_BUTTON_L1 -> {
+                if (action == KeyEvent.ACTION_DOWN) move(-1)
+                true
+            }
+            KeyEvent.KEYCODE_DPAD_DOWN, KeyEvent.KEYCODE_DPAD_RIGHT, KeyEvent.KEYCODE_BUTTON_R1 -> {
+                if (action == KeyEvent.ACTION_DOWN) move(1)
+                true
+            }
+            KeyEvent.KEYCODE_BUTTON_A, KeyEvent.KEYCODE_ENTER, KeyEvent.KEYCODE_DPAD_CENTER -> {
+                if (action == KeyEvent.ACTION_DOWN) activateSelection()
+                true
+            }
+            KeyEvent.KEYCODE_BUTTON_B, KeyEvent.KEYCODE_BACK, KeyEvent.KEYCODE_ESCAPE -> {
+                if (action == KeyEvent.ACTION_DOWN) hideMenu()
+                true
+            }
+            else -> false
+        }
+        return handled || overlay != null
+    }
+
+    private fun handleOverlayMotion(event: MotionEvent): Boolean {
+        val isJoystick = event.isFromSource(InputDevice.SOURCE_JOYSTICK) ||
+            event.isFromSource(InputDevice.SOURCE_GAMEPAD)
+        if (!isJoystick || event.action != MotionEvent.ACTION_MOVE) return false
+
+        val hatY = event.getAxisValue(MotionEvent.AXIS_HAT_Y)
+        val hatX = event.getAxisValue(MotionEvent.AXIS_HAT_X)
+        val value = when {
+            hatY != 0f -> hatY
+            hatX != 0f -> hatX
+            else -> event.getAxisValue(MotionEvent.AXIS_Y)
+        }
+        val direction = when {
+            value < -0.6f -> -1
+            value > 0.6f -> 1
+            else -> 0
+        }
+        if (direction != 0 && direction != lastAxisDir) move(direction)
+        lastAxisDir = direction
+        return true
+    }
+
+    private fun move(delta: Int) {
+        selected = (selected + delta).coerceIn(0, options.lastIndex)
+        optionViews.getOrNull(selected)?.requestFocus()
+        refreshSelection()
     }
 
     private fun isSupportedEmulator(pkg: String?): Boolean {
         if (pkg.isNullOrBlank()) return false
-        val p = pkg.lowercase()
-        return p.contains("lemon") || p.contains("peanuts") ||
-            p == "dev.nxnative.android" || p == "dev.bananative.android" ||
-            p == "dev.nxnative.android.play" || p == "com.antutu.abenchmark"
+        return pkg == "dev.lemon.lemon_emulator" ||
+            pkg == "com.antutu.ABenchMark" ||
+            pkg == "dev.nxnative.android" ||
+            pkg == "dev.bananative.android" ||
+            pkg == "dev.nxnative.android.play"
     }
+
+    private fun isSystemPackage(pkg: String): Boolean =
+        pkg == "android" ||
+            pkg.startsWith("com.android.systemui") ||
+            pkg.startsWith("com.samsung.android.") ||
+            pkg.startsWith("com.sec.android.") ||
+            pkg.contains("inputmethod", ignoreCase = true)
 
     private fun showMenu() {
         if (overlay != null) return
         selected = 0
+        lastAxisDir = 0
         val root = FrameLayout(this).apply {
             setBackgroundColor(0xC9000000.toInt())
             isClickable = true
             isFocusable = true
             isFocusableInTouchMode = true
+            setOnKeyListener { _, code, event -> handleOverlayKey(code, event.action) }
+            setOnGenericMotionListener { _, event -> handleOverlayMotion(event) }
         }
         val panel = LinearLayout(this).apply {
             orientation = LinearLayout.VERTICAL
             gravity = Gravity.CENTER
-            setPadding(36, 30, 36, 26)
-            background = rounded(0xFFF5F5F5.toInt(), 24)
+            setPadding(dp(18), dp(14), dp(18), dp(12))
+            background = rounded(0xFFF5F5F5.toInt(), dp(14))
         }
         val title = TextView(this).apply {
             text = "MENU DO JOGO"
             setTextColor(0xFF202020.toInt())
-            textSize = 23f
+            textSize = 20f
             typeface = Typeface.DEFAULT_BOLD
             gravity = Gravity.CENTER
-            setPadding(12, 8, 12, 24)
+            setPadding(dp(6), dp(4), dp(6), dp(12))
         }
         panel.addView(title)
         optionViews = options.mapIndexed { index, label ->
             TextView(this).apply {
                 text = label
-                textSize = 19f
+                textSize = 16f
                 gravity = Gravity.CENTER
                 setTextColor(0xFF202020.toInt())
-                setPadding(28, 20, 28, 20)
-                background = rounded(if (index == 0) 0xFFBCEBFA.toInt() else 0xFFE2E2E2.toInt(), 12)
+                setPadding(dp(14), dp(10), dp(14), dp(10))
+                background = rounded(if (index == 0) 0xFF8DDCF4.toInt() else 0xFFE2E2E2.toInt(), dp(8))
                 isClickable = true
                 isFocusable = true
                 isFocusableInTouchMode = true
@@ -132,25 +182,24 @@ class GameMenuAccessibilityService : AccessibilityService() {
                     }
                 }
                 setOnClickListener { selected = index; activateSelection() }
-                val params = LinearLayout.LayoutParams(460, LinearLayout.LayoutParams.WRAP_CONTENT)
-                params.topMargin = 10
+                val params = LinearLayout.LayoutParams(dp(300), LinearLayout.LayoutParams.WRAP_CONTENT)
+                params.topMargin = dp(6)
                 panel.addView(this, params)
             }
         }
         val hint = TextView(this).apply {
             text = "Direcional: navegar     A: selecionar     B: continuar"
             setTextColor(0xFF666666.toInt())
-            textSize = 13f
+            textSize = 12f
             gravity = Gravity.CENTER
-            setPadding(12, 22, 12, 2)
+            setPadding(dp(6), dp(12), dp(6), dp(2))
         }
         panel.addView(hint)
-        val panelParams = FrameLayout.LayoutParams(
+        root.addView(panel, FrameLayout.LayoutParams(
             FrameLayout.LayoutParams.WRAP_CONTENT,
             FrameLayout.LayoutParams.WRAP_CONTENT,
             Gravity.CENTER
-        )
-        root.addView(panel, panelParams)
+        ))
         val params = WindowManager.LayoutParams(
             WindowManager.LayoutParams.MATCH_PARENT,
             WindowManager.LayoutParams.MATCH_PARENT,
@@ -162,6 +211,7 @@ class GameMenuAccessibilityService : AccessibilityService() {
         runCatching {
             windowManager?.addView(root, params)
             overlay = root
+            root.requestFocus()
             optionViews.firstOrNull()?.requestFocus()
             refreshSelection()
         }
@@ -176,7 +226,7 @@ class GameMenuAccessibilityService : AccessibilityService() {
         optionViews.forEachIndexed { index, view ->
             view.background = rounded(
                 if (index == selected) 0xFF8DDCF4.toInt() else 0xFFE2E2E2.toInt(),
-                12
+                dp(8)
             )
             view.setTextColor(0xFF202020.toInt())
         }
@@ -186,15 +236,24 @@ class GameMenuAccessibilityService : AccessibilityService() {
         when (selected) {
             0 -> hideMenu()
             1 -> {
+                val emulator = foregroundPackage
                 hideMenu()
-                // Envia voltar ao emulador para encerrar a sessão atual e traz a biblioteca do QPlay.
                 performGlobalAction(GLOBAL_ACTION_BACK)
                 handler.postDelayed({
                     val intent = Intent(this, MainActivity::class.java).apply {
                         addFlags(Intent.FLAG_ACTIVITY_NEW_TASK or Intent.FLAG_ACTIVITY_CLEAR_TOP or Intent.FLAG_ACTIVITY_SINGLE_TOP)
                     }
                     runCatching { startActivity(intent) }
+                    foregroundPackage = null
                 }, 250)
+                if (emulator != null) {
+                    handler.postDelayed({
+                        runCatching {
+                            (getSystemService(ACTIVITY_SERVICE) as ActivityManager)
+                                .killBackgroundProcesses(emulator)
+                        }
+                    }, 1200)
+                }
             }
         }
     }
@@ -204,10 +263,12 @@ class GameMenuAccessibilityService : AccessibilityService() {
         runCatching { windowManager?.removeView(view) }
         overlay = null
         optionViews = emptyList()
+        lastAxisDir = 0
     }
 
     override fun onDestroy() {
         hideMenu()
+        foregroundPackage = null
         super.onDestroy()
     }
 }
