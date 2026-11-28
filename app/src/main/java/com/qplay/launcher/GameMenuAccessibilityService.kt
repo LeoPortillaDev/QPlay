@@ -516,7 +516,7 @@ class GameMenuAccessibilityService : AccessibilityService() {
             view.typeface = if (active) Typeface.DEFAULT_BOLD else Typeface.DEFAULT
         }
         hintView?.text = if (mode == MenuMode.MAIN) "Cima/Baixo: escolher   A: selecionar   B: voltar ao jogo" else
-            "Esq/Dir: escolher   Cima ou Y: fechar app   A: abrir   B: voltar"
+            "Esq/Dir: escolher   X ou Cima: fechar app   A: abrir   B: voltar"
     }
 
     /* ------------------------ Apps abertos ------------------------ */
@@ -554,6 +554,16 @@ class GameMenuAccessibilityService : AccessibilityService() {
                 runCatching { setImageDrawable(packageManager.getApplicationIcon(pkg)) }
             }, LinearLayout.LayoutParams(dp(56), dp(56)))
             card.addView(TextView(this).apply {
+                text = "X  fechar"
+                tag = "closeHint"
+                setTextColor(cAccent)
+                textSize = 11f
+                typeface = Typeface.DEFAULT_BOLD
+                gravity = Gravity.CENTER
+                visibility = View.INVISIBLE
+                setPadding(0, dp(6), 0, 0)
+            }, LinearLayout.LayoutParams(dp(92), LinearLayout.LayoutParams.WRAP_CONTENT))
+            card.addView(TextView(this).apply {
                 text = appLabel(pkg)
                 setTextColor(cInk)
                 textSize = 12f
@@ -588,6 +598,7 @@ class GameMenuAccessibilityService : AccessibilityService() {
                 cornerRadius = dp(14).toFloat()
                 if (active) setStroke(dp(3), cAccent)
             }
+            card.findViewWithTag<View>("closeHint")?.visibility = if (active) View.VISIBLE else View.INVISIBLE
         }
         cardViews.getOrNull(appsSelected)?.let { card ->
             appsScroll?.post { appsScroll?.smoothScrollTo((card.left - dp(24)).coerceAtLeast(0), 0) }
@@ -635,7 +646,8 @@ class GameMenuAccessibilityService : AccessibilityService() {
     }
 
     private fun endGame() {
-        val emulator = foregroundPackage
+        // Se o serviço já "esqueceu" o emulador, usa o último que o QPlay abriu.
+        val emulator = foregroundPackage ?: prefs.getString("last_emulator_pkg", null)
         hideMenu()
         foregroundPackage = null
         if (emulator != null && prefs.getBoolean("force_stop_accessibility", true) && canForceStop()) {
@@ -682,8 +694,8 @@ class GameMenuAccessibilityService : AccessibilityService() {
      * É o mesmo que o usuário faria com o dedo; o Android não oferece API pública para encerrar outro app em primeiro plano.
      * Ao terminar, traz o QPlay de volta e chama [done].
      */
-    fun forceStop(pkg: String, done: () -> Unit) {
-        showCover()
+    fun forceStop(pkg: String, message: String = "Encerrando o jogo…", done: () -> Unit) {
+        showCover(message)
         val intent = Intent(Settings.ACTION_APPLICATION_DETAILS_SETTINGS, Uri.fromParts("package", pkg, null))
             .addFlags(Intent.FLAG_ACTIVITY_NEW_TASK)
         try {
@@ -724,10 +736,10 @@ class GameMenuAccessibilityService : AccessibilityService() {
                     ServiceDiag.forceStop = if (stage == 0) "não achei o botão Forçar parada" else "não achei a confirmação"
                     finished = true
                 }
-                if (finished) finishForceStop(done) else handler.postDelayed(this, 250)
+                if (finished) finishForceStop(done) else handler.postDelayed(this, 180)
             }
         }
-        handler.postDelayed(tick, 700)
+        handler.postDelayed(tick, 500)
     }
 
     private fun finishForceStop(done: () -> Unit) {
@@ -741,12 +753,12 @@ class GameMenuAccessibilityService : AccessibilityService() {
             handler.postDelayed({
                 hideCover()
                 done()
-            }, 700)
-        }, 350)
+            }, 550)
+        }, 300)
     }
 
     /** Tela de aviso do QPlay por cima das telas do Android enquanto o jogo é encerrado, para não aparecerem. */
-    private fun showCover() {
+    private fun showCover(message: String) {
         if (cover != null) return
         loadPalette()
         val view = FrameLayout(this).apply {
@@ -758,7 +770,7 @@ class GameMenuAccessibilityService : AccessibilityService() {
             gravity = Gravity.CENTER_HORIZONTAL
         }
         box.addView(TextView(this).apply {
-            text = "Encerrando o jogo…"
+            text = message
             setTextColor(cInk)
             textSize = 22f
             typeface = Typeface.DEFAULT_BOLD

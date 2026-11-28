@@ -296,9 +296,8 @@ class MainActivity : ComponentActivity() {
         ) {
             // Peanuts: "this process runs the host of X, not Y" = o processo do jogo anterior ainda existe.
             // Só a parada forçada derruba esse processo.
-            toast("Encerrando o jogo anterior…")
             prefs.edit().remove("dirty_pkg").apply()
-            service.forceStop(emulatorPkg) { openGame() }
+            service.forceStop(emulatorPkg, "Preparando o jogo…") { openGame() }
             return
         }
         runCatching {
@@ -354,7 +353,7 @@ class MainActivity : ComponentActivity() {
             setDataAndType(game.uri, mime)
             addFlags(Intent.FLAG_GRANT_READ_URI_PERMISSION)
         }
-        startFresh(lemonPackage, intent) {
+        startFresh(lemonPackage, intent, forceStop = true) {
             toast("O Lemon não conseguiu abrir este arquivo. Confira se a pasta de jogos também está cadastrada nele.", long = true)
         }
     }
