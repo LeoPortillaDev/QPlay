@@ -586,7 +586,7 @@ class MainActivity : ComponentActivity() {
                                 coverMap = coverMap + (key to saved.toString())
                                 prefs.edit().putString("cover_$key", saved.toString()).apply()
                             } else {
-                                saved.delete()
+                                saved.path?.let { File(it).delete() }
                             }
                         }
                         completed = true
