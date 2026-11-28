@@ -466,6 +466,8 @@ class MainActivity : ComponentActivity() {
     private fun QPlayApp() {
         val prefs = remember { getSharedPreferences("qplay_library", MODE_PRIVATE) }
         val scope = rememberCoroutineScope()
+        // Evita duas buscas automáticas simultâneas para o mesmo jogo durante uma atualização da biblioteca.
+        val autoCoverInFlight = remember { mutableSetOf<String>() }
 
         var folderUri by remember { mutableStateOf(prefs.getString("rom_folder_uri", null)?.let(Uri::parse)) }
         var games by remember { mutableStateOf<List<NupGame>>(emptyList()) }
@@ -557,6 +559,51 @@ class MainActivity : ComponentActivity() {
                 scanning = false
             } else {
                 games = emptyList()
+            }
+        }
+
+        // Capas automáticas: preenche jogos sem capa uma única vez; novos jogos entram na fila ao serem detectados.
+        // A consulta e o download rodam em segundo plano, sem bloquear a biblioteca.
+        LaunchedEffect(games) {
+            val detectedGames = games
+            if (detectedGames.isEmpty()) return@LaunchedEffect
+            scope.launch {
+                for (game in detectedGames) {
+                    val key = game.uri.toString()
+                    if (!prefs.getString("cover_$key", null).isNullOrBlank()) continue
+                    val attempted = prefs.getStringSet("auto_cover_attempted", emptySet()).orEmpty()
+                    if (key in attempted || !autoCoverInFlight.add(key)) continue
+
+                    var completed = false
+                    try {
+                        val hit = withContext(Dispatchers.IO) {
+                            CoverCatalog.search(applicationContext, game.name, limit = 1).firstOrNull()
+                        }
+                        if (hit != null) {
+                            val saved = withContext(Dispatchers.IO) { saveCover(hit.url, key) }
+                            // Uma capa escolhida manualmente enquanto o download ocorria sempre tem prioridade.
+                            if (prefs.getString("cover_$key", null).isNullOrBlank()) {
+                                coverMap = coverMap + (key to saved.toString())
+                                prefs.edit().putString("cover_$key", saved.toString()).apply()
+                            } else {
+                                saved.delete()
+                            }
+                        }
+                        completed = true
+                    } catch (e: CancellationException) {
+                        throw e
+                    } catch (_: Exception) {
+                        // Não repetir automaticamente a mesma consulta a cada abertura; a busca manual continua disponível.
+                        completed = true
+                    } finally {
+                        if (completed) {
+                            val done = prefs.getStringSet("auto_cover_attempted", emptySet())
+                                .orEmpty().toMutableSet().apply { add(key) }
+                            prefs.edit().putStringSet("auto_cover_attempted", done).apply()
+                        }
+                        autoCoverInFlight.remove(key)
+                    }
+                }
             }
         }
 
