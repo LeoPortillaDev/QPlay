@@ -14,7 +14,6 @@ import android.view.WindowManager
 import android.widget.FrameLayout
 import android.widget.LinearLayout
 import android.widget.TextView
-import android.view.ViewGroup
 import android.view.accessibility.AccessibilityEvent
 
 /**
@@ -60,11 +59,17 @@ class GameMenuAccessibilityService : AccessibilityService() {
         if (overlay != null) {
             if (event.action != KeyEvent.ACTION_DOWN) return true
             when (key) {
-                KeyEvent.KEYCODE_DPAD_UP, KeyEvent.KEYCODE_DPAD_LEFT -> {
-                    selected = (selected - 1).coerceAtLeast(0); refreshSelection(); return true
+                KeyEvent.KEYCODE_DPAD_UP, KeyEvent.KEYCODE_DPAD_LEFT, KeyEvent.KEYCODE_BUTTON_L1 -> {
+                    selected = (selected - 1).coerceAtLeast(0)
+                    optionViews.getOrNull(selected)?.requestFocus()
+                    refreshSelection()
+                    return true
                 }
-                KeyEvent.KEYCODE_DPAD_DOWN, KeyEvent.KEYCODE_DPAD_RIGHT -> {
-                    selected = (selected + 1).coerceAtMost(options.lastIndex); refreshSelection(); return true
+                KeyEvent.KEYCODE_DPAD_DOWN, KeyEvent.KEYCODE_DPAD_RIGHT, KeyEvent.KEYCODE_BUTTON_R1 -> {
+                    selected = (selected + 1).coerceAtMost(options.lastIndex)
+                    optionViews.getOrNull(selected)?.requestFocus()
+                    refreshSelection()
+                    return true
                 }
                 KeyEvent.KEYCODE_BUTTON_A, KeyEvent.KEYCODE_ENTER, KeyEvent.KEYCODE_DPAD_CENTER -> {
                     activateSelection(); return true
@@ -89,11 +94,10 @@ class GameMenuAccessibilityService : AccessibilityService() {
         if (overlay != null) return
         selected = 0
         val root = FrameLayout(this).apply {
-            setBackgroundColor(0x99000000.toInt())
+            setBackgroundColor(0xC9000000.toInt())
             isClickable = true
             isFocusable = true
             isFocusableInTouchMode = true
-            descendantFocusability = ViewGroup.FOCUS_BLOCK_DESCENDANTS
         }
         val panel = LinearLayout(this).apply {
             orientation = LinearLayout.VERTICAL
@@ -119,6 +123,14 @@ class GameMenuAccessibilityService : AccessibilityService() {
                 setPadding(28, 20, 28, 20)
                 background = rounded(if (index == 0) 0xFFBCEBFA.toInt() else 0xFFE2E2E2.toInt(), 12)
                 isClickable = true
+                isFocusable = true
+                isFocusableInTouchMode = true
+                setOnFocusChangeListener { _, hasFocus ->
+                    if (hasFocus) {
+                        selected = index
+                        refreshSelection()
+                    }
+                }
                 setOnClickListener { selected = index; activateSelection() }
                 val params = LinearLayout.LayoutParams(460, LinearLayout.LayoutParams.WRAP_CONTENT)
                 params.topMargin = 10
@@ -150,7 +162,7 @@ class GameMenuAccessibilityService : AccessibilityService() {
         runCatching {
             windowManager?.addView(root, params)
             overlay = root
-            root.requestFocus()
+            optionViews.firstOrNull()?.requestFocus()
             refreshSelection()
         }
     }
