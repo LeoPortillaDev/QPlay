@@ -46,6 +46,7 @@ import androidx.compose.foundation.lazy.LazyRow
 import androidx.compose.foundation.lazy.itemsIndexed
 import androidx.compose.foundation.lazy.rememberLazyListState
 import androidx.compose.material.icons.Icons
+import androidx.compose.material.icons.rounded.Accessibility
 import androidx.compose.material.icons.rounded.Apps
 import androidx.compose.material.icons.rounded.Favorite
 import androidx.compose.material.icons.rounded.FolderOpen
@@ -269,6 +270,18 @@ class MainActivity : ComponentActivity() {
      * killBackgroundProcesses é best-effort: o Android pode preservar processos em uso.
      */
     private fun startFresh(emulatorPkg: String, intent: Intent, onError: () -> Unit) {
+        val prefs = getSharedPreferences("qplay_library", MODE_PRIVATE)
+        // O serviço de acessibilidade usa este pacote para reconhecer o emulador mesmo em builds com nome diferente.
+        prefs.edit().putString("last_emulator_pkg", emulatorPkg).apply()
+        if (!prefs.getBoolean("close_previous_session", true)) {
+            // Modo simples (comportamento antigo): abre direto, sem encerrar nada.
+            try {
+                startActivity(intent)
+            } catch (_: Exception) {
+                onError()
+            }
+            return
+        }
         runCatching {
             (getSystemService(ACTIVITY_SERVICE) as ActivityManager).killBackgroundProcesses(emulatorPkg)
         }
@@ -485,6 +498,8 @@ class MainActivity : ComponentActivity() {
         var coverMap by remember { mutableStateOf(stringMap(prefs, "cover_")) }
         var libraryFilter by remember { mutableStateOf("Todos") }
         var settingsCategory by remember { mutableStateOf("Perfil") }
+        var gameMenuEnabled by remember { mutableStateOf(prefs.getBoolean("game_menu_enabled", true)) }
+        var closePrevious by remember { mutableStateOf(prefs.getBoolean("close_previous_session", true)) }
         var uiSoundsEnabled by remember { mutableStateOf(prefs.getBoolean("ui_sounds_enabled", true)) }
         var uiSoundVolume by remember { mutableStateOf(prefs.getInt("ui_sound_volume", 35).toFloat()) }
         var avatarUri by remember { mutableStateOf(prefs.getString("profile_avatar_uri", null)?.let(Uri::parse)) }
@@ -546,6 +561,7 @@ class MainActivity : ComponentActivity() {
             val (found, peanutsPkg) = withContext(Dispatchers.IO) { installedApps() to peanutsPackage() }
             apps = found
             peanuts = peanutsPkg
+            prefs.edit().putString("peanuts_pkg", peanutsPkg).apply()
         }
 
         LaunchedEffect(folderUri, refreshToken) {
@@ -669,6 +685,10 @@ class MainActivity : ComponentActivity() {
             if (ev.key == Key.ButtonB) {
                 if (ev.type == KeyEventType.KeyUp) onBackPressedDispatcher.onBackPressed()
                 true
+            } else if (ev.key == Key.ButtonSelect && screen == Screen.Home && keyboard == null) {
+                // Botão "−" do controle na tela inicial: atalho direto para Configurações > Controles.
+                if (ev.type == KeyEventType.KeyUp) { settingsCategory = "Controles"; screen = Screen.Settings }
+                true
             } else false
         }) {
             val activeKeyboard = keyboard
@@ -697,6 +717,7 @@ class MainActivity : ComponentActivity() {
                     onRefresh = refresh,
                     onApps = { screen = Screen.Apps },
                     onPeanuts = { toast(if (peanuts != null) "Peanuts conectado ($peanuts)" else "Peanuts não detectado neste aparelho") },
+                    onControls = { settingsCategory = "Controles"; screen = Screen.Settings },
                     onSettings = { screen = Screen.Settings },
                     onQuit = { finish() }
                 )
@@ -747,6 +768,27 @@ class MainActivity : ComponentActivity() {
                     onUiSoundVolume = { volume ->
                         uiSoundVolume = volume
                         prefs.edit().putInt("ui_sound_volume", volume.toInt()).apply()
+                    },
+                    onRestrictedSettings = {
+                        runCatching {
+                            startActivity(
+                                Intent(
+                                    android.provider.Settings.ACTION_APPLICATION_DETAILS_SETTINGS,
+                                    Uri.fromParts("package", packageName, null)
+                                )
+                            )
+                            toast("Toque nos três pontinhos (⋮) no canto e escolha “Permitir configurações restritas”.", long = true)
+                        }.onFailure { toast("Não foi possível abrir as informações do app.") }
+                    },
+                    gameMenuEnabled = gameMenuEnabled,
+                    onGameMenuEnabled = { enabled ->
+                        gameMenuEnabled = enabled
+                        prefs.edit().putBoolean("game_menu_enabled", enabled).apply()
+                    },
+                    closePrevious = closePrevious,
+                    onClosePrevious = { enabled ->
+                        closePrevious = enabled
+                        prefs.edit().putBoolean("close_previous_session", enabled).apply()
                     },
                     onAccessibilitySettings = {
                         runCatching {
@@ -860,6 +902,7 @@ class MainActivity : ComponentActivity() {
         onRefresh: () -> Unit,
         onApps: () -> Unit,
         onPeanuts: () -> Unit,
+        onControls: () -> Unit,
         onSettings: () -> Unit,
         onQuit: () -> Unit
     ) {
@@ -996,6 +1039,7 @@ class MainActivity : ComponentActivity() {
                 SwitchCircleButton(Icons.Rounded.FolderOpen, "Pasta de jogos", SwitchColors.Orange, dock, labelSize, onPickFolder, onFocusedChange = dockFocusChanged(1))
                 SwitchCircleButton(Icons.Rounded.Refresh, "Atualizar", SwitchColors.Blue, dock, labelSize, onRefresh, onFocusedChange = dockFocusChanged(2))
                 SwitchCircleButton(Icons.Rounded.SportsEsports, "Peanuts", SwitchColors.Gray, dock, labelSize, onPeanuts, onFocusedChange = dockFocusChanged(3))
+                SwitchCircleButton(Icons.Rounded.Accessibility, "Controles e acessibilidade", SwitchColors.Gray, dock, labelSize, onControls, onFocusedChange = dockFocusChanged(6))
                 SwitchCircleButton(Icons.Rounded.Settings, "Configurações", SwitchColors.Gray, dock, labelSize, onSettings, onFocusedChange = dockFocusChanged(4))
                 SwitchCircleButton(Icons.Rounded.PowerSettingsNew, "Sair", SwitchColors.Gray, dock, labelSize, onQuit, onFocusedChange = dockFocusChanged(5))
             }

@@ -124,7 +124,12 @@ fun SettingsPage(
     uiSoundVolume: Float,
     onUiSoundVolume: (Float) -> Unit,
     onAccessibilitySettings: () -> Unit,
-    accessibilityEnabled: Boolean
+    accessibilityEnabled: Boolean,
+    onRestrictedSettings: () -> Unit,
+    gameMenuEnabled: Boolean,
+    onGameMenuEnabled: (Boolean) -> Unit,
+    closePrevious: Boolean,
+    onClosePrevious: (Boolean) -> Unit
 ) {
     SwitchPage(title = "Configurações", subtitle = "Switch $version", hints = BackOk) { u ->
         val first = remember { FocusRequester() }
@@ -216,6 +221,29 @@ fun SettingsPage(
                         )
                         Text(
                             "Nas configurações de acessibilidade, encontre Menu de jogo do QPlay e ative. Não é necessário instalar outro aplicativo.",
+                            color = SwitchColors.Muted, fontSize = (u.value * 0.026f).sp
+                        )
+                        SwitchButton("Permitir configurações restritas", onRestrictedSettings)
+                        Text(
+                            "Se o Android bloquear a ativação (app instalado fora da loja), abra aqui as informações do QPlay, toque nos três pontinhos (⋮) e escolha “Permitir configurações restritas”. Depois volte e ative o serviço.",
+                            color = SwitchColors.Muted, fontSize = (u.value * 0.026f).sp
+                        )
+                        SwitchButton(
+                            if (gameMenuEnabled) "Menu do jogo pelo botão HOME: ligado" else "Menu do jogo pelo botão HOME: desligado",
+                            { onGameMenuEnabled(!gameMenuEnabled) },
+                            primary = gameMenuEnabled
+                        )
+                        Text(
+                            "Desligado, o QPlay não intercepta nenhuma tecla do controle. Se algum jogo deixar de reconhecer o controle, desligue para testar.",
+                            color = SwitchColors.Muted, fontSize = (u.value * 0.026f).sp
+                        )
+                        SwitchButton(
+                            if (closePrevious) "Encerrar jogo anterior ao abrir outro: ligado" else "Encerrar jogo anterior ao abrir outro: desligado",
+                            { onClosePrevious(!closePrevious) },
+                            primary = closePrevious
+                        )
+                        Text(
+                            "Ligado, o QPlay encerra o emulador em segundo plano e abre o jogo do zero. Desligado, abre direto, como antes.",
                             color = SwitchColors.Muted, fontSize = (u.value * 0.026f).sp
                         )
                     }

@@ -1,8 +1,10 @@
 package com.qplay.launcher
 
 import android.accessibilityservice.AccessibilityService
+import android.accessibilityservice.AccessibilityServiceInfo
 import android.app.ActivityManager
 import android.content.Intent
+import android.content.SharedPreferences
 import android.graphics.Typeface
 import android.graphics.drawable.GradientDrawable
 import android.os.Handler
@@ -34,16 +36,54 @@ class GameMenuAccessibilityService : AccessibilityService() {
 
     private fun dp(value: Int): Int = (value * resources.displayMetrics.density).toInt()
 
+    private val prefs: SharedPreferences by lazy { getSharedPreferences("qplay_library", MODE_PRIVATE) }
+    private val prefsListener = SharedPreferences.OnSharedPreferenceChangeListener { _, key ->
+        if (key == "game_menu_enabled") applyKeyFilter()
+    }
+
     override fun onServiceConnected() {
         super.onServiceConnected()
         windowManager = getSystemService(WINDOW_SERVICE) as WindowManager
+        prefs.registerOnSharedPreferenceChangeListener(prefsListener)
+        applyKeyFilter()
+    }
+
+    /**
+     * Liga/desliga o filtro de teclas do serviço (Configurações > Controles > "Menu do jogo pelo botão HOME").
+     * Desligado, o serviço deixa de interceptar qualquer tecla do controle: serve para isolar problemas de controle nos jogos.
+     */
+    private fun applyKeyFilter() {
+        val info = serviceInfo ?: return
+        val enabled = prefs.getBoolean("game_menu_enabled", true)
+        info.flags = if (enabled) {
+            info.flags or AccessibilityServiceInfo.FLAG_REQUEST_FILTER_KEY_EVENTS
+        } else {
+            info.flags and AccessibilityServiceInfo.FLAG_REQUEST_FILTER_KEY_EVENTS.inv()
+        }
+        serviceInfo = info
+        if (!enabled) {
+            hideMenu()
+            foregroundPackage = null
+        }
     }
 
     override fun onAccessibilityEvent(event: AccessibilityEvent?) {
         val pkg = event?.packageName?.toString() ?: return
-        // Mantém o último emulador reconhecido durante as transições entre launcher,
-        // jogo e janelas do sistema. Só atualiza quando um emulador compatível aparece.
-        if (isSupportedEmulator(pkg)) foregroundPackage = pkg
+        if (isSupportedEmulator(pkg)) {
+            foregroundPackage = pkg
+            return
+        }
+        if (event.eventType != AccessibilityEvent.TYPE_WINDOW_STATE_CHANGED) return
+        val windowClass = event.className?.toString().orEmpty()
+        when {
+            // Janela do próprio QPlay: só a tela principal conta como "voltei à biblioteca" (o menu também é do QPlay).
+            pkg == packageName -> if (windowClass.endsWith("MainActivity")) foregroundPackage = null
+            // Barras do sistema, teclado e janelas Samsung por cima do jogo não tiram o emulador da frente.
+            isSystemPackage(pkg) -> Unit
+            // Outra tela cheia (launcher, outro app) assumiu: libera o HOME para o Android.
+            // Avisos, toasts e diálogos não são "Activity" e não contam.
+            windowClass.endsWith("Activity") -> foregroundPackage = null
+        }
     }
 
     override fun onInterrupt() = Unit
@@ -114,11 +154,15 @@ class GameMenuAccessibilityService : AccessibilityService() {
 
     private fun isSupportedEmulator(pkg: String?): Boolean {
         if (pkg.isNullOrBlank()) return false
-        return pkg == "dev.lemon.lemon_emulator" ||
+        if (pkg == "dev.lemon.lemon_emulator" ||
             pkg == "com.antutu.ABenchMark" ||
             pkg == "dev.nxnative.android" ||
             pkg == "dev.bananative.android" ||
             pkg == "dev.nxnative.android.play"
+        ) return true
+        // Builds personalizadas (ex.: Peanuts com outro nome de pacote): o QPlay grava o pacote que detectou
+        // e o último emulador que ele mesmo abriu.
+        return pkg == prefs.getString("peanuts_pkg", null) || pkg == prefs.getString("last_emulator_pkg", null)
     }
 
     private fun isSystemPackage(pkg: String): Boolean =
@@ -260,6 +304,7 @@ class GameMenuAccessibilityService : AccessibilityService() {
     }
 
     override fun onDestroy() {
+        runCatching { prefs.unregisterOnSharedPreferenceChangeListener(prefsListener) }
         hideMenu()
         foregroundPackage = null
         super.onDestroy()
