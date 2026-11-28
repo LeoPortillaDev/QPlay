@@ -41,7 +41,8 @@ class GameMenuAccessibilityService : AccessibilityService() {
 
     override fun onAccessibilityEvent(event: AccessibilityEvent?) {
         val pkg = event?.packageName?.toString() ?: return
-        if (event.eventType != AccessibilityEvent.TYPE_WINDOW_STATE_CHANGED) return
+        if (event.eventType != AccessibilityEvent.TYPE_WINDOW_STATE_CHANGED &&
+            event.eventType != AccessibilityEvent.TYPE_WINDOWS_CHANGED) return
 
         when {
             isSupportedEmulator(pkg) -> foregroundPackage = pkg
@@ -51,7 +52,9 @@ class GameMenuAccessibilityService : AccessibilityService() {
                     foregroundPackage = null
                 }
             }
-            else -> foregroundPackage = null
+            // Jogos iniciados pelo Lemon/Peanuts podem abrir outra Activity ou pacote.
+            // Não apagar a última identificação válida durante essas transições.
+            else -> Unit
         }
     }
 
@@ -205,9 +208,19 @@ class GameMenuAccessibilityService : AccessibilityService() {
             WindowManager.LayoutParams.MATCH_PARENT,
             WindowManager.LayoutParams.TYPE_ACCESSIBILITY_OVERLAY,
             WindowManager.LayoutParams.FLAG_LAYOUT_IN_SCREEN or
+                WindowManager.LayoutParams.FLAG_LAYOUT_NO_LIMITS or
+                WindowManager.LayoutParams.FLAG_FULLSCREEN or
                 WindowManager.LayoutParams.FLAG_NOT_TOUCH_MODAL,
             android.graphics.PixelFormat.TRANSLUCENT
-        )
+        ).apply {
+            gravity = Gravity.TOP or Gravity.START
+            x = 0
+            y = 0
+            if (android.os.Build.VERSION.SDK_INT >= android.os.Build.VERSION_CODES.P) {
+                layoutInDisplayCutoutMode =
+                    WindowManager.LayoutParams.LAYOUT_IN_DISPLAY_CUTOUT_MODE_SHORT_EDGES
+            }
+        }
         runCatching {
             windowManager?.addView(root, params)
             overlay = root
