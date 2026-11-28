@@ -61,6 +61,8 @@ class GameMenuAccessibilityService : AccessibilityService() {
         }
     private var overlay: View? = null
     private var cover: View? = null
+    private var coverShownAt = 0L
+    private var lastHomeAt = 0L
     private var windowManager: WindowManager? = null
     private var selected = 0
     private var lastAxisX = 0
@@ -173,15 +175,35 @@ class GameMenuAccessibilityService : AccessibilityService() {
                 if (!isSupportedEmulator(foregroundPackage)) ServiceDiag.homeIgnored++
             }
         }
+        if (isHome && overlay == null && event.action == KeyEvent.ACTION_DOWN && event.repeatCount == 0) {
+            // Pergunta ao Android qual janela está ativa agora, em vez de confiar só nos eventos (que às vezes não chegam).
+            refreshForeground()
+        }
         if (isHome && isSupportedEmulator(foregroundPackage)) {
             // HOME abre o menu; com o menu aberto, HOME de novo fecha.
+            // Alguns controles mandam mais de um código por aperto: ignora repetições em menos de meio segundo.
             if (event.action == KeyEvent.ACTION_DOWN && event.repeatCount == 0) {
-                if (overlay != null) hideMenu() else showMenu()
+                val now = System.currentTimeMillis()
+                if (now - lastHomeAt > 450) {
+                    lastHomeAt = now
+                    if (overlay != null) hideMenu() else showMenu()
+                }
             }
             return true
         }
         if (overlay != null) return handleOverlayKey(key, event.action)
         return false
+    }
+
+    /** Janela realmente ativa agora (precisa da permissão de ler a tela; sem ela, vale o último estado conhecido). */
+    private fun refreshForeground() {
+        val active = runCatching { rootInActiveWindow?.packageName?.toString() }.getOrNull() ?: return
+        when {
+            isSupportedEmulator(active) -> foregroundPackage = active
+            active == packageName -> Unit
+            isSystemPackage(active) -> Unit
+            else -> foregroundPackage = null
+        }
     }
 
     /** Teclas do controle com o menu aberto: nenhuma chega ao jogo enquanto ele estiver visível. */
@@ -697,7 +719,7 @@ class GameMenuAccessibilityService : AccessibilityService() {
     fun forceStop(pkg: String, message: String = "Encerrando o jogo…", done: () -> Unit) {
         showCover(message)
         val intent = Intent(Settings.ACTION_APPLICATION_DETAILS_SETTINGS, Uri.fromParts("package", pkg, null))
-            .addFlags(Intent.FLAG_ACTIVITY_NEW_TASK)
+            .addFlags(Intent.FLAG_ACTIVITY_NEW_TASK or Intent.FLAG_ACTIVITY_EXCLUDE_FROM_RECENTS)
         try {
             startActivity(intent)
         } catch (_: Exception) {
@@ -750,16 +772,19 @@ class GameMenuAccessibilityService : AccessibilityService() {
             }
             runCatching { startActivity(intent) }
             // Com o QPlay de volta à frente, o Android permite que ele abra o próximo jogo.
+            // O aviso fica pelo menos 4 s na tela; o próximo jogo só abre depois disso.
+            val remaining = (4000L - (System.currentTimeMillis() - coverShownAt)).coerceAtLeast(0L)
             handler.postDelayed({
-                hideCover()
                 done()
-            }, 550)
+                handler.postDelayed({ hideCover() }, 900)
+            }, 550 + remaining)
         }, 300)
     }
 
     /** Tela de aviso do QPlay por cima das telas do Android enquanto o jogo é encerrado, para não aparecerem. */
     private fun showCover(message: String) {
         if (cover != null) return
+        coverShownAt = System.currentTimeMillis()
         loadPalette()
         val view = FrameLayout(this).apply {
             setBackgroundColor(cPanel)
