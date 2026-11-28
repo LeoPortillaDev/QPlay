@@ -60,6 +60,7 @@ class GameMenuAccessibilityService : AccessibilityService() {
             ServiceDiag.foreground = value ?: "nenhum"
         }
     private var overlay: View? = null
+    private var cover: View? = null
     private var windowManager: WindowManager? = null
     private var selected = 0
     private var lastAxisX = 0
@@ -497,9 +498,8 @@ class GameMenuAccessibilityService : AccessibilityService() {
             overlay = root
             root.requestFocus()
             refreshMain()
-            // O painel entra deslizando pela esquerda, como o menu de um console.
-            panel.translationX = -panelWidth.toFloat()
-            panel.animate().translationX(0f).setDuration(170).start()
+            root.requestLayout()
+            root.invalidate()
         }
     }
 
@@ -683,12 +683,14 @@ class GameMenuAccessibilityService : AccessibilityService() {
      * Ao terminar, traz o QPlay de volta e chama [done].
      */
     fun forceStop(pkg: String, done: () -> Unit) {
+        showCover()
         val intent = Intent(Settings.ACTION_APPLICATION_DETAILS_SETTINGS, Uri.fromParts("package", pkg, null))
             .addFlags(Intent.FLAG_ACTIVITY_NEW_TASK)
         try {
             startActivity(intent)
         } catch (_: Exception) {
             ServiceDiag.forceStop = "não abriu as Informações do app"
+            hideCover()
             done()
             return
         }
@@ -736,8 +738,74 @@ class GameMenuAccessibilityService : AccessibilityService() {
             }
             runCatching { startActivity(intent) }
             // Com o QPlay de volta à frente, o Android permite que ele abra o próximo jogo.
-            handler.postDelayed({ done() }, 700)
+            handler.postDelayed({
+                hideCover()
+                done()
+            }, 700)
         }, 350)
+    }
+
+    /** Tela de aviso do QPlay por cima das telas do Android enquanto o jogo é encerrado, para não aparecerem. */
+    private fun showCover() {
+        if (cover != null) return
+        loadPalette()
+        val view = FrameLayout(this).apply {
+            setBackgroundColor(cPanel)
+            isClickable = true
+        }
+        val box = LinearLayout(this).apply {
+            orientation = LinearLayout.VERTICAL
+            gravity = Gravity.CENTER_HORIZONTAL
+        }
+        box.addView(TextView(this).apply {
+            text = "Encerrando o jogo…"
+            setTextColor(cInk)
+            textSize = 22f
+            typeface = Typeface.DEFAULT_BOLD
+            gravity = Gravity.CENTER
+        })
+        box.addView(View(this).apply { setBackgroundColor(cAccent) }, LinearLayout.LayoutParams(dp(120), dp(4)).apply {
+            topMargin = dp(14)
+        })
+        box.addView(TextView(this).apply {
+            text = "Aguarde alguns segundos"
+            setTextColor(cMuted)
+            textSize = 13f
+            gravity = Gravity.CENTER
+            setPadding(0, dp(12), 0, 0)
+        })
+        view.addView(box, FrameLayout.LayoutParams(
+            FrameLayout.LayoutParams.WRAP_CONTENT,
+            FrameLayout.LayoutParams.WRAP_CONTENT,
+            Gravity.CENTER
+        ))
+        // Não pode tomar o foco: a parada forçada precisa ler a tela do Android que está por baixo.
+        val params = WindowManager.LayoutParams(
+            WindowManager.LayoutParams.MATCH_PARENT,
+            WindowManager.LayoutParams.MATCH_PARENT,
+            WindowManager.LayoutParams.TYPE_ACCESSIBILITY_OVERLAY,
+            WindowManager.LayoutParams.FLAG_NOT_FOCUSABLE or
+                WindowManager.LayoutParams.FLAG_LAYOUT_IN_SCREEN or
+                WindowManager.LayoutParams.FLAG_LAYOUT_NO_LIMITS,
+            android.graphics.PixelFormat.OPAQUE
+        )
+        if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.R) {
+            params.layoutInDisplayCutoutMode = WindowManager.LayoutParams.LAYOUT_IN_DISPLAY_CUTOUT_MODE_ALWAYS
+        } else if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.P) {
+            params.layoutInDisplayCutoutMode = WindowManager.LayoutParams.LAYOUT_IN_DISPLAY_CUTOUT_MODE_SHORT_EDGES
+        }
+        runCatching {
+            windowManager?.addView(view, params)
+            cover = view
+        }
+        // Segurança: a tela de aviso nunca fica presa.
+        handler.postDelayed({ hideCover() }, 15000)
+    }
+
+    private fun hideCover() {
+        val view = cover ?: return
+        runCatching { windowManager?.removeView(view) }
+        cover = null
     }
 
     private fun findClickable(root: AccessibilityNodeInfo, labels: List<String>): AccessibilityNodeInfo? {
@@ -762,6 +830,7 @@ class GameMenuAccessibilityService : AccessibilityService() {
         if (instance === this) instance = null
         runCatching { prefs.unregisterOnSharedPreferenceChangeListener(prefsListener) }
         hideMenu()
+        hideCover()
         foregroundPackage = null
         super.onDestroy()
     }
