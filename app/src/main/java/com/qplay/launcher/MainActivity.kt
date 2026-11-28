@@ -6,6 +6,8 @@ import android.content.SharedPreferences
 import android.content.pm.PackageManager
 import android.graphics.Bitmap
 import android.graphics.BitmapFactory
+import android.app.ActivityManager
+import android.util.LruCache
 import android.media.AudioAttributes
 import android.media.AudioFormat
 import android.media.AudioTrack
@@ -262,6 +264,24 @@ class MainActivity : ComponentActivity() {
         packageManager.getLaunchIntentForPackage(packageName)?.let { startActivity(it) }
     }
 
+    /**
+     * Tenta liberar uma instância anterior do emulador antes de abrir outro jogo.
+     * killBackgroundProcesses é best-effort: o Android pode preservar processos em uso.
+     */
+    private fun startFresh(emulatorPkg: String, intent: Intent, onError: () -> Unit) {
+        runCatching {
+            (getSystemService(ACTIVITY_SERVICE) as ActivityManager).killBackgroundProcesses(emulatorPkg)
+        }
+        intent.addFlags(Intent.FLAG_ACTIVITY_NEW_TASK or Intent.FLAG_ACTIVITY_CLEAR_TASK)
+        window.decorView.postDelayed({
+            try {
+                startActivity(intent)
+            } catch (_: Exception) {
+                onError()
+            }
+        }, 400)
+    }
+
     private fun launchNup(game: NupGame) {
         if (!game.fileName.substringAfterLast('.', "").equals("nup", true)) {
             launchSwitchPackage(game)
@@ -277,9 +297,7 @@ class MainActivity : ComponentActivity() {
             data = game.uri
             addFlags(Intent.FLAG_GRANT_READ_URI_PERMISSION)
         }
-        try {
-            startActivity(intent)
-        } catch (e: Exception) {
+        startFresh(pkg, intent) {
             toast("O Peanuts não aceitou abrir este arquivo. Vamos validar a integração com esta versão.", long = true)
         }
     }
@@ -311,27 +329,51 @@ class MainActivity : ComponentActivity() {
             setDataAndType(game.uri, mime)
             addFlags(Intent.FLAG_GRANT_READ_URI_PERMISSION)
         }
-        try {
-            startActivity(intent)
-        } catch (_: Exception) {
+        startFresh(lemonPackage, intent) {
             toast("O Lemon não conseguiu abrir este arquivo. Confira se a pasta de jogos também está cadastrada nele.", long = true)
         }
     }
 
     private fun scanNupFolder(treeUri: Uri): List<NupGame> {
-        val root = DocumentFile.fromTreeUri(this, treeUri) ?: return emptyList()
         val found = mutableListOf<NupGame>()
-        fun walk(dir: DocumentFile, depth: Int) {
-            if (depth > 8 || found.size >= 500) return
-            dir.listFiles().forEach { file ->
-                if (file.isDirectory) walk(file, depth + 1)
-                else if (file.isFile && file.name?.substringAfterLast('.', "")?.lowercase()?.let { it in setOf("nup", "nsp", "xci") } == true) {
-                    val filename = file.name ?: "Jogo"
-                    found.add(NupGame(filename.substringBeforeLast('.').replace('_', ' '), file.uri, filename))
+        val extensions = setOf("nup", "nsp", "xci")
+        val projection = arrayOf(
+            android.provider.DocumentsContract.Document.COLUMN_DOCUMENT_ID,
+            android.provider.DocumentsContract.Document.COLUMN_DISPLAY_NAME,
+            android.provider.DocumentsContract.Document.COLUMN_MIME_TYPE
+        )
+
+        fun walk(parentId: String, depth: Int) {
+            if (depth > 8 || found.size >= 2000) return
+            val children = android.provider.DocumentsContract.buildChildDocumentsUriUsingTree(treeUri, parentId)
+            val folders = mutableListOf<String>()
+            try {
+                contentResolver.query(children, projection, null, null, null)?.use { cursor ->
+                    while (cursor.moveToNext()) {
+                        val id = cursor.getString(0) ?: continue
+                        val filename = cursor.getString(1) ?: continue
+                        val mime = cursor.getString(2)
+                        if (mime == android.provider.DocumentsContract.Document.MIME_TYPE_DIR) {
+                            folders.add(id)
+                        } else if (filename.substringAfterLast('.', "").lowercase() in extensions) {
+                            val uri = android.provider.DocumentsContract.buildDocumentUriUsingTree(treeUri, id)
+                            found.add(NupGame(filename.substringBeforeLast('.').replace('_', ' '), uri, filename))
+                            if (found.size >= 2000) break
+                        }
+                    }
                 }
+            } catch (_: Exception) {
+                // Uma pasta sem permissão não impede a leitura das demais.
             }
+            folders.forEach { walk(it, depth + 1) }
         }
-        walk(root, 0)
+
+        val rootId = try {
+            android.provider.DocumentsContract.getTreeDocumentId(treeUri)
+        } catch (_: Exception) {
+            return emptyList()
+        }
+        walk(rootId, 0)
         return found.sortedBy { it.name.lowercase() }
     }
 
@@ -348,12 +390,26 @@ class MainActivity : ComponentActivity() {
         return open()?.use { BitmapFactory.decodeStream(it, null, BitmapFactory.Options().apply { inSampleSize = sample }) }
     }
 
+    private val decodedCache = object : LruCache<String, Bitmap>(48 * 1024 * 1024) {
+        override fun sizeOf(key: String, value: Bitmap): Int = value.byteCount
+    }
+
     private fun decodeUri(uri: Uri?, maxSide: Int): ImageBitmap? = try {
         if (uri == null) {
             null
         } else {
-            val bmp = decodeSampled(maxSide) { contentResolver.openInputStream(uri) }
-            if (bmp == null) null else applyOrientation(bmp, exifOrientation(uri)).asImageBitmap()
+            val cacheKey = "$uri@$maxSide"
+            val cached = decodedCache.get(cacheKey)
+            if (cached != null) {
+                cached.asImageBitmap()
+            } else {
+                val bmp = decodeSampled(maxSide) { contentResolver.openInputStream(uri) }
+                if (bmp == null) null else {
+                    val oriented = applyOrientation(bmp, exifOrientation(uri))
+                    decodedCache.put(cacheKey, oriented)
+                    oriented.asImageBitmap()
+                }
+            }
         }
     } catch (_: Exception) { null }
 
