@@ -129,7 +129,10 @@ fun SettingsPage(
     gameMenuEnabled: Boolean,
     onGameMenuEnabled: (Boolean) -> Unit,
     closePrevious: Boolean,
-    onClosePrevious: (Boolean) -> Unit
+    onClosePrevious: (Boolean) -> Unit,
+    forceStopEnabled: Boolean,
+    onForceStopEnabled: (Boolean) -> Unit,
+    forceStopReady: Boolean
 ) {
     SwitchPage(title = "Configurações", subtitle = "Switch $version", hints = BackOk) { u ->
         val first = remember { FocusRequester() }
@@ -246,6 +249,27 @@ fun SettingsPage(
                             "Ligado, o QPlay encerra o emulador em segundo plano e abre o jogo do zero. Desligado, abre direto, como antes.",
                             color = SwitchColors.Muted, fontSize = (u.value * 0.026f).sp
                         )
+                        SwitchButton(
+                            if (forceStopEnabled) "Parada forçada do Peanuts: ligada" else "Parada forçada do Peanuts: desligada",
+                            { onForceStopEnabled(!forceStopEnabled) },
+                            primary = forceStopEnabled
+                        )
+                        Text(
+                            if (forceStopReady)
+                                "Antes de abrir outro jogo no Peanuts, o QPlay toca em Forçar parada nas informações do app (você verá a tela por ~2 s). Resolve o erro “this process runs the host of…”."
+                            else
+                                "Para usar, desligue e ligue de novo o serviço do QPlay em Acessibilidade (ele ganhou a permissão de ler a tela). Enquanto isso, o QPlay usa o método simples.",
+                            color = SwitchColors.Muted, fontSize = (u.value * 0.026f).sp
+                        )
+                        var diag by remember { mutableStateOf("") }
+                        LaunchedEffect(accessibilityEnabled) {
+                            while (true) {
+                                diag = ServiceDiag.summary(accessibilityEnabled)
+                                delay(500)
+                            }
+                        }
+                        Text("Diagnóstico do serviço", color = SwitchColors.Ink, fontSize = body)
+                        Text(diag, color = SwitchColors.Muted, fontSize = (u.value * 0.024f).sp)
                     }
                     else -> {
                         Text(peanutsStatus, color = SwitchColors.Ink, fontSize = body)

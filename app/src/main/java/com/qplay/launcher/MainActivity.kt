@@ -269,30 +269,42 @@ class MainActivity : ComponentActivity() {
      * Tenta liberar uma instância anterior do emulador antes de abrir outro jogo.
      * killBackgroundProcesses é best-effort: o Android pode preservar processos em uso.
      */
-    private fun startFresh(emulatorPkg: String, intent: Intent, onError: () -> Unit) {
+    private fun startFresh(emulatorPkg: String, intent: Intent, forceStop: Boolean = false, onError: () -> Unit) {
         val prefs = getSharedPreferences("qplay_library", MODE_PRIVATE)
         // O serviço de acessibilidade usa este pacote para reconhecer o emulador mesmo em builds com nome diferente.
         prefs.edit().putString("last_emulator_pkg", emulatorPkg).apply()
-        if (!prefs.getBoolean("close_previous_session", true)) {
-            // Modo simples (comportamento antigo): abre direto, sem encerrar nada.
+        val openGame = {
             try {
                 startActivity(intent)
+                // Lembra que esta sessão pode ainda estar viva (o Peanuts não encerra o processo sozinho).
+                prefs.edit().putString("dirty_pkg", emulatorPkg).apply()
             } catch (_: Exception) {
                 onError()
             }
+        }
+        if (!prefs.getBoolean("close_previous_session", true)) {
+            // Modo simples (comportamento antigo): abre direto, sem encerrar nada.
+            openGame()
+            return
+        }
+        intent.addFlags(Intent.FLAG_ACTIVITY_NEW_TASK or Intent.FLAG_ACTIVITY_CLEAR_TASK)
+        val service = GameMenuAccessibilityService.instance
+        if (forceStop &&
+            prefs.getBoolean("force_stop_accessibility", true) &&
+            prefs.getString("dirty_pkg", null) == emulatorPkg &&
+            service != null && service.canForceStop()
+        ) {
+            // Peanuts: "this process runs the host of X, not Y" = o processo do jogo anterior ainda existe.
+            // Só a parada forçada derruba esse processo.
+            toast("Encerrando o jogo anterior…")
+            prefs.edit().remove("dirty_pkg").apply()
+            service.forceStop(emulatorPkg) { openGame() }
             return
         }
         runCatching {
             (getSystemService(ACTIVITY_SERVICE) as ActivityManager).killBackgroundProcesses(emulatorPkg)
         }
-        intent.addFlags(Intent.FLAG_ACTIVITY_NEW_TASK or Intent.FLAG_ACTIVITY_CLEAR_TASK)
-        window.decorView.postDelayed({
-            try {
-                startActivity(intent)
-            } catch (_: Exception) {
-                onError()
-            }
-        }, 400)
+        window.decorView.postDelayed({ openGame() }, 400)
     }
 
     private fun launchNup(game: NupGame) {
@@ -310,7 +322,7 @@ class MainActivity : ComponentActivity() {
             data = game.uri
             addFlags(Intent.FLAG_GRANT_READ_URI_PERMISSION)
         }
-        startFresh(pkg, intent) {
+        startFresh(pkg, intent, forceStop = true) {
             toast("O Peanuts não aceitou abrir este arquivo. Vamos validar a integração com esta versão.", long = true)
         }
     }
@@ -500,6 +512,7 @@ class MainActivity : ComponentActivity() {
         var settingsCategory by remember { mutableStateOf("Perfil") }
         var gameMenuEnabled by remember { mutableStateOf(prefs.getBoolean("game_menu_enabled", true)) }
         var closePrevious by remember { mutableStateOf(prefs.getBoolean("close_previous_session", true)) }
+        var forceStopEnabled by remember { mutableStateOf(prefs.getBoolean("force_stop_accessibility", true)) }
         var uiSoundsEnabled by remember { mutableStateOf(prefs.getBoolean("ui_sounds_enabled", true)) }
         var uiSoundVolume by remember { mutableStateOf(prefs.getInt("ui_sound_volume", 35).toFloat()) }
         var avatarUri by remember { mutableStateOf(prefs.getString("profile_avatar_uri", null)?.let(Uri::parse)) }
@@ -785,6 +798,12 @@ class MainActivity : ComponentActivity() {
                         gameMenuEnabled = enabled
                         prefs.edit().putBoolean("game_menu_enabled", enabled).apply()
                     },
+                    forceStopEnabled = forceStopEnabled,
+                    onForceStopEnabled = { enabled ->
+                        forceStopEnabled = enabled
+                        prefs.edit().putBoolean("force_stop_accessibility", enabled).apply()
+                    },
+                    forceStopReady = GameMenuAccessibilityService.instance?.canForceStop() == true,
                     closePrevious = closePrevious,
                     onClosePrevious = { enabled ->
                         closePrevious = enabled
